@@ -1,5 +1,5 @@
 /* Don't assert. */
-x = [1,2,3]
+x = <x/>
 function f(aaa) {
     aaa.e = x
 }

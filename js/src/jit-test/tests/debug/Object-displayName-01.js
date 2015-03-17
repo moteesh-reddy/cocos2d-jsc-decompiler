@@ -1,6 +1,6 @@
 // Debugger.Object.prototype.displayName
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = Debugger(g);
 var name;
 dbg.onDebuggerStatement = function (frame) { name = frame.callee.displayName; };

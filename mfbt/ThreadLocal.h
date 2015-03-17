@@ -1,13 +1,12 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /* Cross-platform lightweight thread local data wrappers. */
 
-#ifndef mozilla_ThreadLocal_h
-#define mozilla_ThreadLocal_h
+#ifndef mozilla_TLS_h_
+#define mozilla_TLS_h_
 
 #if defined(XP_WIN)
 // This file will get included in any file that wants to add a profiler mark.
@@ -18,8 +17,8 @@
 // Unfortunately, even including these headers causes us to add a bunch of ugly
 // stuff to our namespace e.g #define CreateEvent CreateEventW
 extern "C" {
-__declspec(dllimport) void* __stdcall TlsGetValue(unsigned long);
-__declspec(dllimport) int __stdcall TlsSetValue(unsigned long, void*);
+__declspec(dllimport) void * __stdcall TlsGetValue(unsigned long);
+__declspec(dllimport) int __stdcall TlsSetValue(unsigned long, void *);
 __declspec(dllimport) unsigned long __stdcall TlsAlloc();
 }
 #else
@@ -29,7 +28,6 @@ __declspec(dllimport) unsigned long __stdcall TlsAlloc();
 
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/NullPtr.h"
 
 namespace mozilla {
 
@@ -54,10 +52,7 @@ typedef sig_atomic_t sig_safe_t;
  *
  * API usage:
  *
- * // Create a TLS item.
- * //
- * // Note that init() should be invoked exactly once, before any usage of set()
- * // or get().
+ * // Create a TLS item
  * mozilla::ThreadLocal<int> tlsKey;
  * if (!tlsKey.init()) {
  *   // deal with the error
@@ -73,46 +68,47 @@ template<typename T>
 class ThreadLocal
 {
 #if defined(XP_WIN)
-  typedef unsigned long key_t;
+    typedef unsigned long key_t;
 #else
-  typedef pthread_key_t key_t;
+    typedef pthread_key_t key_t;
 #endif
 
-  union Helper
-  {
-    void* mPtr;
-    T mValue;
-  };
+    union Helper {
+      void* ptr;
+      T value;
+    };
 
-public:
-  MOZ_WARN_UNUSED_RESULT inline bool init();
+  public:
+    MOZ_WARN_UNUSED_RESULT inline bool init();
 
-  inline T get() const;
+    inline T get() const;
 
-  inline void set(const T aValue);
+    inline bool set(const T value);
 
-  bool initialized() const { return mInited; }
+    bool initialized() const {
+      return inited;
+    }
 
-private:
-  key_t mKey;
-  bool mInited;
+  private:
+    key_t key;
+    bool inited;
 };
 
 template<typename T>
 inline bool
 ThreadLocal<T>::init()
 {
-  static_assert(sizeof(T) <= sizeof(void*),
-                "mozilla::ThreadLocal can't be used for types larger than "
-                "a pointer");
+  MOZ_STATIC_ASSERT(sizeof(T) <= sizeof(void *),
+                    "mozilla::ThreadLocal can't be used for types larger than "
+                    "a pointer");
   MOZ_ASSERT(!initialized());
 #ifdef XP_WIN
-  mKey = TlsAlloc();
-  mInited = mKey != 0xFFFFFFFFUL; // TLS_OUT_OF_INDEXES
+  key = TlsAlloc();
+  inited = key != 0xFFFFFFFFUL; // TLS_OUT_OF_INDEXES
 #else
-  mInited = !pthread_key_create(&mKey, nullptr);
+  inited = !pthread_key_create(&key, NULL);
 #endif
-  return mInited;
+  return inited;
 }
 
 template<typename T>
@@ -122,30 +118,27 @@ ThreadLocal<T>::get() const
   MOZ_ASSERT(initialized());
   Helper h;
 #ifdef XP_WIN
-  h.mPtr = TlsGetValue(mKey);
+  h.ptr = TlsGetValue(key);
 #else
-  h.mPtr = pthread_getspecific(mKey);
+  h.ptr = pthread_getspecific(key);
 #endif
-  return h.mValue;
+  return h.value;
 }
 
 template<typename T>
-inline void
-ThreadLocal<T>::set(const T aValue)
+inline bool
+ThreadLocal<T>::set(const T value)
 {
   MOZ_ASSERT(initialized());
   Helper h;
-  h.mValue = aValue;
+  h.value = value;
 #ifdef XP_WIN
-  bool succeeded = TlsSetValue(mKey, h.mPtr);
+  return TlsSetValue(key, h.ptr);
 #else
-  bool succeeded = !pthread_setspecific(mKey, h.mPtr);
+  return !pthread_setspecific(key, h.ptr);
 #endif
-  if (!succeeded) {
-    MOZ_CRASH();
-  }
 }
 
 } // namespace mozilla
 
-#endif /* mozilla_ThreadLocal_h */
+#endif // mozilla_TLS_h_

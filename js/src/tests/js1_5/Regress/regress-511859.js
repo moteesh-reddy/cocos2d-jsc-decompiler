@@ -1,4 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -145,6 +145,20 @@ function test()
   {
     reportCompare(expectedvalues[i], actualvalues[i], statusitems[i]);
   }
+
+  for (var i=5; i<=9; i++)
+    status = summary + ': UTF-8 test: bad UTF-8 sequence ' + i;
+    expect = 'Error';
+    actual = 'No error!';
+    try
+    {
+      testUTF8(i);
+    }
+    catch (e)
+    {
+      actual = 'Error';
+    }
+    reportCompare(expect, actual, status);
 
   exitFunc('test');
 }

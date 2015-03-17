@@ -1,55 +1,43 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef jswatchpoint_h
-#define jswatchpoint_h
+#ifndef jswatchpoint_h___
+#define jswatchpoint_h___
 
 #include "jsalloc.h"
+#include "jsprvtd.h"
+#include "jsapi.h"
+#include "jsfriendapi.h"
 
 #include "gc/Barrier.h"
 #include "js/HashTable.h"
-#include "js/OldDebugAPI.h"
 
 namespace js {
-
-struct WeakMapTracer;
 
 struct WatchKey {
     WatchKey() {}
     WatchKey(JSObject *obj, jsid id) : object(obj), id(id) {}
     WatchKey(const WatchKey &key) : object(key.object.get()), id(key.id.get()) {}
-    PreBarrieredObject object;
-    PreBarrieredId id;
-
-    bool operator!=(const WatchKey &other) const {
-        return object != other.object || id != other.id;
-    }
+    EncapsulatedPtrObject object;
+    EncapsulatedId id;
 };
 
 struct Watchpoint {
     JSWatchPointHandler handler;
-    PreBarrieredObject closure;  /* This is always marked in minor GCs and so doesn't require a postbarrier. */
+    RelocatablePtrObject closure;
     bool held;  /* true if currently running handler */
-    Watchpoint(JSWatchPointHandler handler, JSObject* closure, bool held)
-      : handler(handler), closure(closure), held(held) {}
 };
 
 template <>
-struct DefaultHasher<WatchKey>
-{
+struct DefaultHasher<WatchKey> {
     typedef WatchKey Lookup;
     static inline js::HashNumber hash(const Lookup &key);
 
     static bool match(const WatchKey &k, const Lookup &l) {
         return k.object == l.object && k.id.get() == l.id.get();
-    }
-
-    static void rekey(WatchKey &k, const WatchKey& newKey) {
-        k.object.unsafeSet(newKey.object);
-        k.id.unsafeSet(newKey.id);
     }
 };
 
@@ -67,7 +55,7 @@ class WatchpointMap {
 
     bool triggerWatchpoint(JSContext *cx, HandleObject obj, HandleId id, MutableHandleValue vp);
 
-    static bool markCompartmentIteratively(JSCompartment *c, JSTracer *trc);
+    static bool markAllIteratively(JSTracer *trc);
     bool markIteratively(JSTracer *trc);
     void markAll(JSTracer *trc);
     static void sweepAll(JSRuntime *rt);
@@ -82,4 +70,4 @@ class WatchpointMap {
 
 }
 
-#endif /* jswatchpoint_h */
+#endif /* jswatchpoint_h___ */

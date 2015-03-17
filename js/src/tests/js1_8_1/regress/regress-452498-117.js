@@ -1,4 +1,5 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
+// |reftest| pref(javascript.options.xml.content,true)
+03/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -36,7 +37,11 @@ function test()
 
 // Assertion failure: !pn->isPlaceholder(), at ../jsparse.cpp:4876
 // =====
-  (function(){ var x; eval("var x; x = null"); })();
+  (function(){ var x; eval("var x; x = null"); })()
+
+// Assertion failure: regs.sp == StackBase(fp), at ../jsinterp.cpp:2984
+// =====
+    function this ({x}) { function x(){} }
 
 // Assertion failure: !(pnu->pn_dflags & PND_BOUND), at ../jsemit.cpp:1818
 // =====
@@ -56,7 +61,7 @@ function test()
 // =====
   try
   {
-    (function(){([]) ((function(q) { return q; })for (each in [1,2]))})();
+    (function(){([]) ((function(q) { return q; })for (each in *))})();
   }
   catch(ex)
   {
@@ -76,6 +81,10 @@ function test()
 // Assertion failure: pnu->pn_lexdef == dn, at ../jsemit.cpp:1817
 // =====
   uneval(function(){for(var [arguments] = ({ get y(){} }) in y ) (x);});
+
+// Assertion failure: slot < StackDepth(jp->script), at ../jsopcode.cpp:1318
+// =====
+  uneval(function(){([] for ([,,]in <><y/></>));});
 
 // Assertion failure: n != 0, at ../jsfun.cpp:2689
 // =====

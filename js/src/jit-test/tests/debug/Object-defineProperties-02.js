@@ -1,6 +1,6 @@
 // Exceptions thrown by obj.defineProperties are copied into the debugger compartment.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = new Debugger;
 var gw = dbg.addDebuggee(g);
 
@@ -30,4 +30,3 @@ function test(objexpr, descs) {
 }
 
 test("Object.create(null, {p: {value: 1}})", {p: {value: 2}});
-test("({})", {x: {get: 'bad'}});

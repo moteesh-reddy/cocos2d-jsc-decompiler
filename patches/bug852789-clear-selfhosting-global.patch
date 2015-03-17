@@ -1,0 +1,30 @@
+# HG changeset patch
+# Parent 5e2aadf0d4c168213137dd6859588a12a6887769
+Bug 852789 - (Backported) Clear the runtime's self-hosting global on destruction of last context.
+
+diff --git a/js/src/jscntxt.cpp b/js/src/jscntxt.cpp
+--- a/js/src/jscntxt.cpp
++++ b/js/src/jscntxt.cpp
+@@ -410,6 +410,8 @@ js::DestroyContext(JSContext *cx, Destro
+         /* Unpin all common atoms before final GC. */
+         FinishCommonAtoms(rt);
+ 
++        rt->finishSelfHosting();
++
+         /* Clear debugging state to remove GC roots. */
+         for (CompartmentsIter c(rt); !c.done(); c.next())
+             c->clearTraps(rt->defaultFreeOp());
+diff --git a/js/src/jscntxt.h b/js/src/jscntxt.h
+--- a/js/src/jscntxt.h
++++ b/js/src/jscntxt.h
+@@ -448,6 +448,10 @@ struct JSRuntime : js::RuntimeFriendFiel
+     JSFunction *getSelfHostedFunction(JSContext *cx, const char *name);
+     bool cloneSelfHostedValueById(JSContext *cx, jsid id, js::HandleObject holder, js::Value *vp);
+ 
++    void finishSelfHosting() {
++        selfHostedGlobal_ = NULL;
++    }
++
+     /* Base address of the native stack for the current thread. */
+     uintptr_t           nativeStackBase;
+ 

@@ -1,6 +1,6 @@
 // getChildScripts returns scripts in source order.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = new Debugger(g);
 var scripts = [];
 var cs;

@@ -1,0 +1,13 @@
+# HG changeset patch
+# Parent 21cc980c87df54b64deb70839bf87744b8f894d8
+diff --git a/js/src/jsversion.h b/js/src/jsversion.h
+--- a/js/src/jsversion.h
++++ b/js/src/jsversion.h
+@@ -138,7 +138,6 @@
+ 
+ #elif JS_VERSION == 186
+ 
+-#warning JS_VERSION is deprecated, please use MOZJS_MAJOR_VERSION et. al.
+ #define JS_HAS_STR_HTML_HELPERS 1       /* has str.anchor, str.bold, etc. */
+ #define JS_HAS_OBJ_PROTO_PROP   1       /* has o.__proto__ etc. */
+ #define JS_HAS_OBJ_WATCHPOINT   1       /* has o.watch and o.unwatch */

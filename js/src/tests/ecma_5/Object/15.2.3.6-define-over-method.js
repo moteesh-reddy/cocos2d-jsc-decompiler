@@ -4,7 +4,7 @@
 //-----------------------------------------------------------------------------
 var BUGNUMBER = 568786;
 var summary =
-  'Do not assert: !(attrs & (JSPROP_GETTER | JSPROP_SETTER)) with ' +
+  '"Assertion failure: !(attrs & (JSPROP_GETTER | JSPROP_SETTER))," with ' +
   'Object.defineProperty';
 
 print(BUGNUMBER + ": " + summary);

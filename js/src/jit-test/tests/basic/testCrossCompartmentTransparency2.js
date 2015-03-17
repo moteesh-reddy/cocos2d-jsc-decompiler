@@ -1,4 +1,4 @@
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 
 var array = g.eval("new Array(1,2,3)");
 assertEq([array,array].concat().toString(), "1,2,3,1,2,3");

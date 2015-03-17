@@ -1,6 +1,6 @@
 // getVariable works in function scopes.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = Debugger(g);
 var hits = 0;
 dbg.onDebuggerStatement = function (frame) {

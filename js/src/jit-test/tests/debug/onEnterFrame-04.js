@@ -9,19 +9,18 @@
 
 load(libdir + 'asserts.js');
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 g.eval("function f(frame) { n++; return 42; }");
 g.n = 0;
 
-var dbg = Debugger();
-var gw = dbg.addDebuggee(g);
+var dbg = Debugger(g);
 
 // Register the debuggee function as the onEnterFrame handler. When we first
 // call or eval in the debuggee:
 //
 // - The onEnterFrame call reporting that frame's creation is itself an event
 //   that must be reported, so we call onEnterFrame again.
-//
+// 
 // - SpiderMonkey detects the out-of-control recursion, and generates a "too
 //   much recursion" InternalError in the youngest onEnterFrame call.
 //
@@ -37,7 +36,7 @@ var gw = dbg.addDebuggee(g);
 dbg.onEnterFrame = g.f;
 
 // Get a Debugger.Object instance referring to f.
-var debuggeeF = gw.makeDebuggeeValue(g.f);
+var debuggeeF = dbg.addDebuggee(g.f);
 
 // Using f.call allows us to catch the termination.
 assertEq(debuggeeF.call(), null);

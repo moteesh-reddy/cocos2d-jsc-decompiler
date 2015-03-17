@@ -2,7 +2,7 @@
 # waitpid to dispatch tasks.  This avoids several deadlocks that are possible
 # with fork/exec + threads + Python.
 
-import errno, os, select
+import errno, os, sys, select
 from datetime import datetime, timedelta
 from results import TestOutput
 
@@ -17,26 +17,25 @@ class Task(object):
         self.out = []
         self.err = []
 
-def spawn_test(test, passthrough = False):
+def spawn_test(test):
     """Spawn one child, return a task struct."""
-    if not passthrough:
-        (rout, wout) = os.pipe()
-        (rerr, werr) = os.pipe()
+    (rout, wout) = os.pipe()
+    (rerr, werr) = os.pipe()
 
-        rv = os.fork()
+    rv = os.fork()
 
-        # Parent.
-        if rv:
-            os.close(wout)
-            os.close(werr)
-            return Task(test, rv, rout, rerr)
+    # Parent.
+    if rv:
+        os.close(wout)
+        os.close(werr)
+        return Task(test, rv, rout, rerr)
 
-        # Child.
-        os.close(rout)
-        os.close(rerr)
+    # Child.
+    os.close(rout)
+    os.close(rerr)
 
-        os.dup2(wout, 1)
-        os.dup2(werr, 2)
+    os.dup2(wout, 1)
+    os.dup2(werr, 2)
 
     cmd = test.get_command(test.js_cmd_prefix)
     os.execvp(cmd[0], cmd)
@@ -145,7 +144,7 @@ def reap_zombies(tasks, results, timeout):
             pid, status = os.waitpid(0, os.WNOHANG)
             if pid == 0:
                 break
-        except OSError as e:
+        except OSError, e:
             if e.errno == errno.ECHILD:
                 break
             raise e
@@ -189,7 +188,7 @@ def run_all_tests(tests, results, options):
 
     while len(tests) or len(tasks):
         while len(tests) and len(tasks) < options.worker_count:
-            tasks.append(spawn_test(tests.pop(), options.passthrough))
+            tasks.append(spawn_test(tests.pop()))
 
         timeout = get_max_wait(tasks, results, options.timeout)
         read_input(tasks, timeout)

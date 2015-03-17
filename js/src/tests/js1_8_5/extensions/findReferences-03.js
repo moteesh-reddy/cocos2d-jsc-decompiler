@@ -11,10 +11,7 @@ if (typeof findReferences == "function") {
 
     var o = {};
 
-    assertEq(function f() {
-	return referencesVia(null, 'arguments', arguments) ||
-	       referencesVia(null, 'baseline-args-obj', arguments);
-    }(), true);
+    assertEq(function f() { return referencesVia(null, 'arguments', arguments); } (), true);
 
     var rvalueCorrect;
 
@@ -22,8 +19,7 @@ if (typeof findReferences == "function") {
         try {
             return o;
         } finally {
-            rvalueCorrect = referencesVia(null, 'rval', o) ||
-                            referencesVia(null, 'baseline-rval', o);
+            rvalueCorrect = referencesVia(null, 'rval', o);
         }
     }
     rvalueCorrect = false;

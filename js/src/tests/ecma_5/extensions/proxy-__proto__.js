@@ -34,11 +34,20 @@ function testProxy(creator, args, proto)
   assertEq(protoGetter.call(pobj), proto);
 
   // Attempt [[Prototype]] mutation
-  protoSetter.call(pobj, null);
+  try
+  {
+    protoSetter.call(pobj);
+    throw new Error("should throw trying to mutate a proxy's [[Prototype]]");
+  }
+  catch (e)
+  {
+    assertEq(e instanceof TypeError, true,
+             "expected TypeError, instead got: " + e);
+  }
 
   // Check [[Prototype]] after attempted mutation
-  assertEq(Object.getPrototypeOf(pobj), null);
-  assertEq(protoGetter.call(pobj), null);
+  assertEq(Object.getPrototypeOf(pobj), proto);
+  assertEq(protoGetter.call(pobj), proto);
 }
 
 // Proxy object with non-null [[Prototype]]

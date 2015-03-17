@@ -24,7 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "assembler/wtf/Assertions.h"
+#include "Assertions.h"
 
 #include <stdio.h>
 #include <stdarg.h>

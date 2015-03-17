@@ -1,4 +1,4 @@
-// |jit-test|
+// |jit-test| mjitalways;
 
 this.name = "outer";
 var sb = evalcx('');

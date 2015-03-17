@@ -1,6 +1,6 @@
 // Setting frame.onStep to undefined turns off single-stepping.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 g.a = 0;
 g.eval("function f() {\n" +
        "    a++;\n" +

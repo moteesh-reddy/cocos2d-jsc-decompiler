@@ -1,6 +1,6 @@
 // Check that an onExceptionUnwind hook can force a frame to terminate.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = Debugger(g);
 g.eval("function f() { throw 'ksnife'; }");
 var log = '';

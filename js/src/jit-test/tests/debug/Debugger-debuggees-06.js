@@ -17,11 +17,9 @@ check(false);
 check(1);
 check(NaN);
 check("ok");
-if (typeof Symbol === "function")
-    check(Symbol("ok"));
 
 // A Debugger.Object that belongs to a different Debugger object is invalid.
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg2 = new Debugger;
 var w = dbg2.addDebuggee(g);
 assertEq(w instanceof Debugger.Object, true);

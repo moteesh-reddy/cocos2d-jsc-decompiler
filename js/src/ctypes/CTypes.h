@@ -3,16 +3,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef ctypes_CTypes_h
-#define ctypes_CTypes_h
+#ifndef CTYPES_H
+#define CTYPES_H
 
-#include "ffi.h"
-#include "jsalloc.h"
+#include "jscntxt.h"
+#include "jsapi.h"
 #include "prlink.h"
+#include "ffi.h"
 
 #include "js/HashTable.h"
-#include "js/Vector.h"
-#include "vm/String.h"
 
 namespace js {
 namespace ctypes {
@@ -21,35 +20,52 @@ namespace ctypes {
 ** Utility classes
 *******************************************************************************/
 
+template<class T>
+class OperatorDelete
+{
+public:
+  static void destroy(T* ptr) { UnwantedForeground::delete_(ptr); }
+};
+
+template<class T>
+class OperatorArrayDelete
+{
+public:
+  static void destroy(T* ptr) { UnwantedForeground::array_delete(ptr); }
+};
+
 // Class that takes ownership of a pointer T*, and calls cx->delete_() or
 // cx->array_delete() upon destruction.
-template<class T>
+template<class T, class DeleteTraits = OperatorDelete<T> >
 class AutoPtr {
 private:
-  typedef AutoPtr<T> self_type;
+  typedef AutoPtr<T, DeleteTraits> self_type;
 
 public:
-  AutoPtr() : mPtr(nullptr) { }
+  // An AutoPtr variant that calls js_array_delete() instead.
+  typedef AutoPtr<T, OperatorArrayDelete<T> > Array;
+
+  AutoPtr() : mPtr(NULL) { }
   explicit AutoPtr(T* ptr) : mPtr(ptr) { }
-  ~AutoPtr() { js_delete(mPtr); }
+  ~AutoPtr() { DeleteTraits::destroy(mPtr); }
 
   T*   operator->()         { return mPtr; }
-  bool operator!()          { return mPtr == nullptr; }
+  bool operator!()          { return mPtr == NULL; }
   T&   operator[](size_t i) { return *(mPtr + i); }
   // Note: we cannot safely provide an 'operator T*()', since this would allow
   // the compiler to perform implicit conversion from one AutoPtr to another
   // via the constructor AutoPtr(T*).
 
   T*   get()         { return mPtr; }
-  void set(T* other) { JS_ASSERT(mPtr == nullptr); mPtr = other; }
-  T*   forget()      { T* result = mPtr; mPtr = nullptr; return result; }
+  void set(T* other) { JS_ASSERT(mPtr == NULL); mPtr = other; }
+  T*   forget()      { T* result = mPtr; mPtr = NULL; return result; }
 
   self_type& operator=(T* rhs) { mPtr = rhs; return *this; }
 
 private:
   // Do not allow copy construction or assignment from another AutoPtr.
-  AutoPtr(AutoPtr<T>&);
-  self_type& operator=(AutoPtr<T>& rhs);
+  template<class U> AutoPtr(AutoPtr<T, U>&);
+  template<class U> self_type& operator=(AutoPtr<T, U>& rhs);
 
   T* mPtr;
 };
@@ -58,8 +74,6 @@ private:
 template<class T, size_t N = 0>
 class Array : public Vector<T, N, SystemAllocPolicy>
 {
-  static_assert(!mozilla::IsSame<T, JS::Value>::value,
-                "use JS::AutoValueVector instead");
 };
 
 // String and AutoString classes, based on Vector.
@@ -95,14 +109,10 @@ void
 AppendString(Vector<jschar, N, AP> &v, JSString* str)
 {
   JS_ASSERT(str);
-  JSLinearString *linear = str->ensureLinear(nullptr);
-  if (!linear)
+  const jschar *chars = str->getChars(NULL);
+  if (!chars)
     return;
-  JS::AutoCheckCannotGC nogc;
-  if (linear->hasLatin1Chars())
-    v.append(linear->latin1Chars(nogc), linear->length());
-  else
-    v.append(linear->twoByteChars(nogc), linear->length());
+  v.append(chars, str->length());
 }
 
 template <size_t N, class AP>
@@ -115,20 +125,12 @@ AppendString(Vector<char, N, AP> &v, JSString* str)
   if (!v.resize(vlen + alen))
     return;
 
-  JSLinearString *linear = str->ensureLinear(nullptr);
-  if (!linear)
+  const jschar *chars = str->getChars(NULL);
+  if (!chars)
     return;
 
-  JS::AutoCheckCannotGC nogc;
-  if (linear->hasLatin1Chars()) {
-    const Latin1Char *chars = linear->latin1Chars(nogc);
-    for (size_t i = 0; i < alen; ++i)
-      v[i + vlen] = char(chars[i]);
-  } else {
-    const jschar *chars = linear->twoByteChars(nogc);
-    for (size_t i = 0; i < alen; ++i)
-      v[i + vlen] = char(chars[i]);
-  }
+  for (size_t i = 0; i < alen; ++i)
+    v[i + vlen] = char(chars[i]);
 }
 
 template <class T, size_t N, class AP, size_t ArrayLength>
@@ -159,41 +161,23 @@ PrependString(Vector<jschar, N, AP> &v, JSString* str)
   if (!v.resize(vlen + alen))
     return;
 
-  JSLinearString* linear = str->ensureLinear(nullptr);
-  if (!linear)
+  const jschar *chars = str->getChars(NULL);
+  if (!chars)
     return;
 
   // Move vector data forward. This is safe since we've already resized.
   memmove(v.begin() + alen, v.begin(), vlen * sizeof(jschar));
 
   // Copy data to insert.
-  JS::AutoCheckCannotGC nogc;
-  if (linear->hasLatin1Chars()) {
-    const Latin1Char *chars = linear->latin1Chars(nogc);
-    for (size_t i = 0; i < alen; i++)
-      v[i] = chars[i];
-  } else {
-    memcpy(v.begin(), linear->twoByteChars(nogc), alen * sizeof(jschar));
-  }
+  memcpy(v.begin(), chars, alen * sizeof(jschar));
 }
-
-template <typename CharT>
-extern size_t
-GetDeflatedUTF8StringLength(JSContext *maybecx, const CharT *chars,
-                            size_t charsLength);
-
-template <typename CharT>
-bool
-DeflateStringToUTF8Buffer(JSContext *maybecx, const CharT *src, size_t srclen,
-                          char *dst, size_t *dstlenp);
-
 
 /*******************************************************************************
 ** Function and struct API definitions
 *******************************************************************************/
 
-MOZ_ALWAYS_INLINE void
-ASSERT_OK(bool ok)
+JS_ALWAYS_INLINE void
+ASSERT_OK(JSBool ok)
 {
   JS_ASSERT(ok);
 }
@@ -202,10 +186,14 @@ ASSERT_OK(bool ok)
 enum ErrorNum {
 #define MSG_DEF(name, number, count, exception, format) \
   name = number,
-#include "ctypes/ctypes.msg"
+#include "ctypes.msg"
 #undef MSG_DEF
   CTYPESERR_LIMIT
 };
+
+const JSErrorFormatString*
+GetErrorMessage(void* userRef, const char* locale, const unsigned errorNumber);
+JSBool TypeError(JSContext* cx, const char* expected, jsval actual);
 
 /**
  * ABI constants that specify the calling convention to use.
@@ -224,7 +212,7 @@ enum ABICode {
 enum TypeCode {
   TYPE_void_t,
 #define DEFINE_TYPE(name, type, ffiType) TYPE_##name,
-#include "ctypes/typedefs.h"
+#include "typedefs.h"
   TYPE_pointer,
   TYPE_function,
   TYPE_array,
@@ -235,49 +223,34 @@ enum TypeCode {
 // as the key to the hash entry.
 struct FieldInfo
 {
-  JS::Heap<JSObject*> mType;    // CType of the field
-  size_t              mIndex;   // index of the field in the struct (first is 0)
-  size_t              mOffset;  // offset of the field in the struct, in bytes
+  JSObject* mType;    // CType of the field
+  size_t    mIndex;   // index of the field in the struct (first is 0)
+  size_t    mOffset;  // offset of the field in the struct, in bytes
 };
-
-struct UnbarrieredFieldInfo
-{
-  JSObject*           mType;    // CType of the field
-  size_t              mIndex;   // index of the field in the struct (first is 0)
-  size_t              mOffset;  // offset of the field in the struct, in bytes
-};
-static_assert(sizeof(UnbarrieredFieldInfo) == sizeof(FieldInfo),
-              "UnbarrieredFieldInfo should be the same as FieldInfo but with unbarriered mType");
 
 // Hash policy for FieldInfos.
-struct FieldHashPolicy : DefaultHasher<JSFlatString*>
+struct FieldHashPolicy
 {
   typedef JSFlatString* Key;
   typedef Key Lookup;
 
-  template <typename CharT>
-  static uint32_t hash(const CharT *s, size_t n) {
+  static uint32_t hash(const Lookup &l) {
+    const jschar* s = l->chars();
+    size_t n = l->length();
     uint32_t hash = 0;
     for (; n > 0; s++, n--)
       hash = hash * 33 + *s;
     return hash;
   }
 
-  static uint32_t hash(const Lookup &l) {
-    JS::AutoCheckCannotGC nogc;
-    return l->hasLatin1Chars()
-           ? hash(l->latin1Chars(nogc), l->length())
-           : hash(l->twoByteChars(nogc), l->length());
-  }
-
-  static bool match(const Key &k, const Lookup &l) {
+  static JSBool match(const Key &k, const Lookup &l) {
     if (k == l)
       return true;
 
     if (k->length() != l->length())
       return false;
 
-    return EqualChars(k, l);
+    return memcmp(k->chars(), l->chars(), k->length() * sizeof(jschar)) == 0;
   }
 };
 
@@ -294,14 +267,14 @@ struct FunctionInfo
 
   // Calling convention of the function. Convert to ffi_abi using GetABI
   // and OBJECT_TO_JSVAL. Stored as a JSObject* for ease of tracing.
-  JS::Heap<JSObject*> mABI;
+  JSObject* mABI;                
 
   // The CType of the value returned by the function.
-  JS::Heap<JSObject*> mReturnType;
+  JSObject* mReturnType;
 
   // A fixed array of known parameter types, excluding any variadic
   // parameters (if mIsVariadic).
-  Array<JS::Heap<JSObject*> > mArgTypes;
+  Array<JSObject*> mArgTypes; 
 
   // A variable array of ffi_type*s corresponding to both known parameter
   // types and dynamic (variadic) parameter types. Longer than mArgTypes
@@ -316,35 +289,46 @@ struct FunctionInfo
 // Parameters necessary for invoking a JS function from a C closure.
 struct ClosureInfo
 {
-  JSContext* cx;                   // JSContext to use
-  JSRuntime* rt;                   // Used in the destructor, where cx might have already
-                                   // been GCed.
-  JS::Heap<JSObject*> closureObj;  // CClosure object
-  JS::Heap<JSObject*> typeObj;     // FunctionType describing the C function
-  JS::Heap<JSObject*> thisObj;     // 'this' object to use for the JS function call
-  JS::Heap<JSObject*> jsfnObj;     // JS function
-  void* errResult;                 // Result that will be returned if the closure throws
-  ffi_closure* closure;            // The C closure itself
+  JSContext* cx;         // JSContext to use
+  JSRuntime* rt;         // Used in the destructor, where cx might have already
+                         // been GCed.
+  JSObject* closureObj;  // CClosure object
+  JSObject* typeObj;     // FunctionType describing the C function
+  JSObject* thisObj;     // 'this' object to use for the JS function call
+  JSObject* jsfnObj;     // JS function
+  void* errResult;       // Result that will be returned if the closure throws
+  ffi_closure* closure;  // The C closure itself
 
   // Anything conditionally freed in the destructor should be initialized to
-  // nullptr here.
-  explicit ClosureInfo(JSRuntime* runtime)
+  // NULL here.
+  ClosureInfo(JSRuntime* runtime)
     : rt(runtime)
-    , errResult(nullptr)
-    , closure(nullptr)
+    , errResult(NULL)
+    , closure(NULL)
   {}
 
   ~ClosureInfo() {
     if (closure)
       ffi_closure_free(closure);
-    js_free(errResult);
-  }
+    if (errResult)
+      rt->free_(errResult);
+  };
 };
 
-bool IsCTypesGlobal(HandleValue v);
 bool IsCTypesGlobal(JSObject* obj);
 
 JSCTypesCallbacks* GetCallbacks(JSObject* obj);
+
+JSBool InitTypeClasses(JSContext* cx, JSHandleObject parent);
+
+JSBool ConvertToJS(JSContext* cx, JSHandleObject typeObj, JSHandleObject dataObj,
+  void* data, bool wantPrimitive, bool ownResult, jsval* result);
+
+JSBool ImplicitConvert(JSContext* cx, jsval val, JSObject* targetType,
+  void* buffer, bool isArgument, bool* freePointer);
+
+JSBool ExplicitConvert(JSContext* cx, jsval val, JSHandleObject targetType,
+  void* buffer);
 
 /*******************************************************************************
 ** JSClass reserved slot definitions
@@ -376,6 +360,7 @@ enum CTypeProtoSlot {
   SLOT_UINT64PROTO       = 10, // ctypes.UInt64.prototype object
   SLOT_CTYPES            = 11, // ctypes object
   SLOT_OURDATAPROTO      = 12, // the data prototype corresponding to this object
+  SLOT_CLOSURECX         = 13, // JSContext for use with FunctionType closures
   CTYPEPROTO_SLOTS
 };
 
@@ -442,7 +427,7 @@ enum Int64FunctionSlot {
 *******************************************************************************/
 
 namespace CType {
-  JSObject* Create(JSContext* cx, HandleObject typeProto, HandleObject dataProto,
+  JSObject* Create(JSContext* cx, JSHandleObject typeProto, JSHandleObject dataProto,
     TypeCode type, JSString* name, jsval size, jsval align, ffi_type* ffiType);
 
   JSObject* DefineBuiltin(JSContext* cx, JSObject* parent, const char* propName,
@@ -458,20 +443,20 @@ namespace CType {
   bool IsSizeDefined(JSObject* obj);
   size_t GetAlignment(JSObject* obj);
   ffi_type* GetFFIType(JSContext* cx, JSObject* obj);
-  JSString* GetName(JSContext* cx, HandleObject obj);
+  JSString* GetName(JSContext* cx, JSHandleObject obj);
   JSObject* GetProtoFromCtor(JSObject* obj, CTypeProtoSlot slot);
-  JSObject* GetProtoFromType(JSContext* cx, JSObject* obj, CTypeProtoSlot slot);
+  JSObject* GetProtoFromType(JSObject* obj, CTypeProtoSlot slot);
   JSCTypesCallbacks* GetCallbacksFromType(JSObject* obj);
 }
 
 namespace PointerType {
-  JSObject* CreateInternal(JSContext* cx, HandleObject baseType);
+  JSObject* CreateInternal(JSContext* cx, JSHandleObject baseType);
 
   JSObject* GetBaseType(JSObject* obj);
 }
 
 namespace ArrayType {
-  JSObject* CreateInternal(JSContext* cx, HandleObject baseType, size_t length,
+  JSObject* CreateInternal(JSContext* cx, JSHandleObject baseType, size_t length,
     bool lengthDefined);
 
   JSObject* GetBaseType(JSObject* obj);
@@ -481,7 +466,7 @@ namespace ArrayType {
 }
 
 namespace StructType {
-  bool DefineInternal(JSContext* cx, JSObject* typeObj, JSObject* fieldsObj);
+  JSBool DefineInternal(JSContext* cx, JSObject* typeObj, JSObject* fieldsObj);
 
   const FieldInfoHash* GetFieldInfo(JSObject* obj);
   const FieldInfo* LookupField(JSContext* cx, JSObject* obj, JSFlatString *name);
@@ -502,24 +487,23 @@ namespace FunctionType {
 }
 
 namespace CClosure {
-  JSObject* Create(JSContext* cx, HandleObject typeObj, HandleObject fnObj,
-    HandleObject thisObj, jsval errVal, PRFuncPtr* fnptr);
+  JSObject* Create(JSContext* cx, JSHandleObject typeObj, JSHandleObject fnObj,
+    JSHandleObject thisObj, jsval errVal, PRFuncPtr* fnptr);
 }
 
 namespace CData {
-  JSObject* Create(JSContext* cx, HandleObject typeObj, HandleObject refObj,
+  JSObject* Create(JSContext* cx, JSHandleObject typeObj, JSHandleObject refObj,
     void* data, bool ownResult);
 
   JSObject* GetCType(JSObject* dataObj);
   void* GetData(JSObject* dataObj);
   bool IsCData(JSObject* obj);
-  bool IsCData(HandleValue v);
   bool IsCDataProto(JSObject* obj);
 
   // Attached by JSAPI as the function 'ctypes.cast'
-  bool Cast(JSContext* cx, unsigned argc, jsval* vp);
+  JSBool Cast(JSContext* cx, unsigned argc, jsval* vp);
   // Attached by JSAPI as the function 'ctypes.getRuntime'
-  bool GetRuntime(JSContext* cx, unsigned argc, jsval* vp);
+  JSBool GetRuntime(JSContext* cx, unsigned argc, jsval* vp);
 }
 
 namespace Int64 {
@@ -533,4 +517,4 @@ namespace UInt64 {
 }
 }
 
-#endif /* ctypes_CTypes_h */
+#endif

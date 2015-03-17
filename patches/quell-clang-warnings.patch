@@ -1,0 +1,140 @@
+# HG changeset patch
+# Parent cbcdf88440f5545fdec2eec649760589a3dc8dc1
+Fix clang warnings on Linux.
+
+diff --git a/js/src/builtin/ParallelArray.cpp b/js/src/builtin/ParallelArray.cpp
+--- a/js/src/builtin/ParallelArray.cpp
++++ b/js/src/builtin/ParallelArray.cpp
+@@ -31,12 +31,14 @@ using namespace js::types;
+ typedef ParallelArrayObject::IndexVector IndexVector;
+ typedef ParallelArrayObject::IndexInfo IndexInfo;
+ 
++#ifdef DEBUG
+ static bool
+ ReportBadArg(JSContext *cx, const char *s = "")
+ {
+     JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_PAR_ARRAY_BAD_ARG, s);
+     return false;
+ }
++#endif // DEBUG
+ 
+ bool
+ ParallelArrayObject::IndexInfo::isInitialized() const
+diff --git a/js/src/jsapi-tests/testValueABI.cpp b/js/src/jsapi-tests/testValueABI.cpp
+--- a/js/src/jsapi-tests/testValueABI.cpp
++++ b/js/src/jsapi-tests/testValueABI.cpp
+@@ -14,6 +14,11 @@
+  * C++ because the default alignments of js::Value and jsval_layout differ.
+  */
+ 
++#if defined(__clang__)
++# pragma clang diagnostic push
++# pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
++#endif
++
+ extern "C" {
+ 
+ extern JSBool
+@@ -27,6 +32,10 @@ C_jsvalAlignmentTest();
+ 
+ }
+ 
++#if defined(__clang__)
++# pragma clang diagnostic pop
++#endif
++
+ BEGIN_TEST(testValueABI_retparam)
+ {
+     JS::RootedObject obj(cx, JS_GetGlobalObject(cx));
+diff --git a/js/src/jsapi.h b/js/src/jsapi.h
+--- a/js/src/jsapi.h
++++ b/js/src/jsapi.h
+@@ -32,6 +32,13 @@
+ #include "js/Vector.h"
+ #endif
+ 
++/* Silence clang warning about return type linkage. */
++#if defined(__clang__)
++# pragma clang diagnostic push
++# pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
++#endif
++
++
+ /************************************************************************/
+ 
+ /* JS::Value can store a full int32_t. */
+@@ -6300,4 +6307,9 @@ JS_DecodeInterpretedFunction(JSContext *
+ 
+ JS_END_EXTERN_C
+ 
++/* Restore initial diagnostics. */
++#if defined(__clang__)
++# pragma clang diagnostic pop
++#endif
++
+ #endif /* jsapi_h___ */
+diff --git a/js/src/jsdbgapi.h b/js/src/jsdbgapi.h
+--- a/js/src/jsdbgapi.h
++++ b/js/src/jsdbgapi.h
+@@ -13,6 +13,12 @@
+ #include "jsapi.h"
+ #include "jsprvtd.h"
+ 
++/* Silence clang warning about return type linkage. */
++#if defined(__clang__)
++# pragma clang diagnostic push
++# pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
++#endif
++
+ JS_BEGIN_EXTERN_C
+ 
+ extern JS_PUBLIC_API(JSCrossCompartmentCall *)
+@@ -526,4 +532,9 @@ js_CallContextDebugHandler(JSContext *cx
+ 
+ JS_END_EXTERN_C
+ 
++/* Restore initial diagnostics. */
++#if defined(__clang__)
++# pragma clang diagnostic pop
++#endif
++
+ #endif /* jsdbgapi_h___ */
+diff --git a/js/src/jstypedarray.cpp b/js/src/jstypedarray.cpp
+--- a/js/src/jstypedarray.cpp
++++ b/js/src/jstypedarray.cpp
+@@ -1831,6 +1831,7 @@ class TypedArrayTemplate
+         JS_ASSERT(len <= length(thisTypedArrayObj) - offset);
+         NativeType *dest = static_cast<NativeType*>(viewData(thisTypedArrayObj)) + offset;
+         SkipRoot skip(cx, &dest);
++        (void)skip;
+ 
+         if (ar->isDenseArray() && ar->getDenseArrayInitializedLength() >= len) {
+             JS_ASSERT(ar->getArrayLength() == len);
+diff --git a/js/src/vm/Debugger.cpp b/js/src/vm/Debugger.cpp
+--- a/js/src/vm/Debugger.cpp
++++ b/js/src/vm/Debugger.cpp
+@@ -3379,6 +3379,7 @@ DebuggerFrame_setOnPop(JSContext *cx, un
+ {
+     REQUIRE_ARGC("Debugger.Frame.set onPop", 1);
+     THIS_FRAME(cx, argc, vp, "set onPop", args, thisobj, fp);
++    (void) fp;
+     if (!IsValidHook(args[0])) {
+         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_NOT_CALLABLE_OR_UNDEFINED);
+         return false;
+diff --git a/mfbt/double-conversion/strtod.cc b/mfbt/double-conversion/strtod.cc
+--- a/mfbt/double-conversion/strtod.cc
++++ b/mfbt/double-conversion/strtod.cc
+@@ -515,11 +515,12 @@ float Strtof(Vector<const char> buffer, 
+     double double_next2 = Double(double_next).NextDouble();
+     f4 = static_cast<float>(double_next2);
+   }
++  (void)f2;
+   assert(f1 <= f2 && f2 <= f3 && f3 <= f4);
+ 
+   // If the guess doesn't lie near a single-precision boundary we can simply
+   // return its float-value.
+-  if ((f1 == f4)) {
++  if (f1 == f4) {
+     return float_guess;
+   }
+ 

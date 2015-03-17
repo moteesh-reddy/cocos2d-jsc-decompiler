@@ -1,4 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -24,10 +24,14 @@ function error(str) {
 }
 
 const JSMSG_GENEXP_YIELD         = error("(function(){((yield) for (x in []))})").message;
+const JSMSG_GENEXP_ARGUMENTS     = error("(function(){(arguments for (x in []))})").message;
 const JSMSG_TOP_YIELD            = error("yield").message;
 const JSMSG_YIELD_PAREN          = error("(function(){yield, 1})").message;
-const JSMSG_YIELD_FOR            = error("(function(){yield for})").message;
-const JSMSG_BAD_GENERATOR_SYNTAX = error("(1, x for (x in []))").message;
+const JSMSG_GENERIC              = error("(for)").message;
+const JSMSG_GENEXP_PAREN         = error("print(1, x for (x in []))").message;
+const JSMSG_BAD_GENERATOR_SYNTAX = error("(1, arguments for (x in []))").message;
+
+const JSMSG_GENEXP_MIX = { simple: JSMSG_BAD_GENERATOR_SYNTAX, call: JSMSG_GENEXP_ARGUMENTS };
 
 const cases = [
   // yield expressions
@@ -49,16 +53,19 @@ const cases = [
   { expr: "((((yield 1))))", top: JSMSG_TOP_YIELD, fun: null, gen: JSMSG_GENEXP_YIELD, desc: "deeply nested yield w/ arg" },
 
   // arguments
-  { expr: "arguments",    top: null, fun: null, gen: null, desc: "arguments in list" },
-  { expr: "1, arguments", top: null, fun: null, gen: null, desc: "arguments in list" },
+  { expr: "arguments",         top: null, fun: null, gen: JSMSG_GENEXP_ARGUMENTS, desc: "simple arguments" },
+  { expr: "1, arguments",      top: null, fun: null, gen: JSMSG_GENEXP_ARGUMENTS, desc: "arguments in list" },
+  { expr: "(arguments)",       top: null, fun: null, gen: JSMSG_GENEXP_ARGUMENTS, desc: "simple arguments, parenthesized" },
+  { expr: "(1, arguments)",    top: null, fun: null, gen: JSMSG_GENEXP_ARGUMENTS, desc: "arguments in list, parenthesized" },
+  { expr: "((((arguments))))", top: null, fun: null, gen: JSMSG_GENEXP_ARGUMENTS, desc: "deeply nested arguments" },
 
   // yield in generator expressions
-  { expr: "(yield for (x in []))",           top: JSMSG_TOP_YIELD, fun: JSMSG_YIELD_FOR,    gen: JSMSG_YIELD_FOR,      desc: "simple yield in genexp" },
+  { expr: "(yield for (x in []))",           top: JSMSG_TOP_YIELD, fun: JSMSG_GENERIC,      gen: JSMSG_GENERIC,      desc: "simple yield in genexp" },
   { expr: "(yield 1 for (x in []))",         top: JSMSG_TOP_YIELD, fun: JSMSG_GENEXP_YIELD, gen: JSMSG_GENEXP_YIELD, desc: "yield w/ arg in genexp" },
   { expr: "(yield, 1 for (x in []))",        top: JSMSG_TOP_YIELD, fun: JSMSG_YIELD_PAREN,  gen: JSMSG_YIELD_PAREN,  desc: "simple yield in list in genexp" },
   { expr: "(yield 1, 2 for (x in []))",      top: JSMSG_TOP_YIELD, fun: JSMSG_YIELD_PAREN,  gen: JSMSG_YIELD_PAREN,  desc: "yield w/ arg in list in genexp" },
-  { expr: "(1, yield for (x in []))",        top: JSMSG_TOP_YIELD, fun: JSMSG_YIELD_FOR,    gen: JSMSG_YIELD_FOR,      desc: "simple yield at end of list in genexp" },
-  { expr: "(1, yield 2 for (x in []))",      top: JSMSG_TOP_YIELD, fun: { simple: JSMSG_GENEXP_YIELD, call: JSMSG_GENEXP_YIELD },
+  { expr: "(1, yield for (x in []))",        top: JSMSG_TOP_YIELD, fun: JSMSG_GENERIC,      gen: JSMSG_GENERIC,      desc: "simple yield at end of list in genexp" },
+  { expr: "(1, yield 2 for (x in []))",      top: JSMSG_TOP_YIELD, fun: { simple: JSMSG_GENEXP_YIELD, call: JSMSG_GENEXP_PAREN },
                                                                                             gen: JSMSG_GENEXP_YIELD, desc: "yield w/ arg at end of list in genexp" },
   { expr: "((yield) for (x in []))",         top: JSMSG_TOP_YIELD, fun: JSMSG_GENEXP_YIELD, gen: JSMSG_GENEXP_YIELD, desc: "simple yield, parenthesized in genexp" },
   { expr: "((yield 1) for (x in []))",       top: JSMSG_TOP_YIELD, fun: JSMSG_GENEXP_YIELD, gen: JSMSG_GENEXP_YIELD, desc: "yield w/ arg, parenthesized in genexp" },
@@ -78,16 +85,16 @@ const cases = [
   { expr: "((((1, yield 2)) for (x in [])) for (y in []))", top: JSMSG_TOP_YIELD, fun: JSMSG_GENEXP_YIELD, gen: JSMSG_GENEXP_YIELD, desc: "deeply nested yield in multiple genexps" },
 
   // arguments in generator expressions
-  { expr: "(arguments for (x in []))",         top: null,                       fun: null,                       gen: null,                       desc: "simple arguments in genexp" },
-  { expr: "(1, arguments for (x in []))",      top: JSMSG_BAD_GENERATOR_SYNTAX, fun: JSMSG_BAD_GENERATOR_SYNTAX, gen: JSMSG_BAD_GENERATOR_SYNTAX, desc: "arguments in list in genexp" },
-  { expr: "((arguments) for (x in []))",       top: null,                       fun: null,                       gen: null,                       desc: "arguments, parenthesized in genexp" },
-  { expr: "(1, (arguments) for (x in []))",    top: JSMSG_BAD_GENERATOR_SYNTAX, fun: JSMSG_BAD_GENERATOR_SYNTAX, gen: JSMSG_BAD_GENERATOR_SYNTAX, desc: "arguments, parenthesized in list in genexp" },
-  { expr: "((1, arguments) for (x in []))",    top: null,                       fun: null,                       gen: null,                       desc: "arguments in list, parenthesized in genexp" },
-  { expr: "(1, (2, arguments) for (x in []))", top: JSMSG_BAD_GENERATOR_SYNTAX, fun: JSMSG_BAD_GENERATOR_SYNTAX, gen: JSMSG_BAD_GENERATOR_SYNTAX, desc: "arguments in list, parenthesized in list in genexp" },
+  { expr: "(arguments for (x in []))",         top: JSMSG_GENEXP_ARGUMENTS, fun: JSMSG_GENEXP_ARGUMENTS, gen: JSMSG_GENEXP_ARGUMENTS, desc: "simple arguments in genexp" },
+  { expr: "(1, arguments for (x in []))",      top: JSMSG_GENEXP_MIX,       fun: JSMSG_GENEXP_MIX,       gen: JSMSG_GENEXP_MIX,       desc: "arguments in list in genexp" },
+  { expr: "((arguments) for (x in []))",       top: JSMSG_GENEXP_ARGUMENTS, fun: JSMSG_GENEXP_ARGUMENTS, gen: JSMSG_GENEXP_ARGUMENTS, desc: "arguments, parenthesized in genexp" },
+  { expr: "(1, (arguments) for (x in []))",    top: JSMSG_GENEXP_MIX,       fun: JSMSG_GENEXP_MIX,       gen: JSMSG_GENEXP_MIX,       desc: "arguments, parenthesized in list in genexp" },
+  { expr: "((1, arguments) for (x in []))",    top: JSMSG_GENEXP_ARGUMENTS, fun: JSMSG_GENEXP_ARGUMENTS, gen: JSMSG_GENEXP_ARGUMENTS, desc: "arguments in list, parenthesized in genexp" },
+  { expr: "(1, (2, arguments) for (x in []))", top: JSMSG_GENEXP_MIX,       fun: JSMSG_GENEXP_MIX,       gen: JSMSG_GENEXP_MIX,       desc: "arguments in list, parenthesized in list in genexp" },
 
   // deeply nested arguments in generator expressions
-  { expr: "((((1, arguments))) for (x in []))",               top: null, fun: null, gen: null, desc: "deeply nested arguments in genexp" },
-  { expr: "((((1, arguments)) for (x in [])) for (y in []))", top: null, fun: null, gen: null, desc: "deeply nested arguments in multiple genexps" },
+  { expr: "((((1, arguments))) for (x in []))",               top: JSMSG_GENEXP_ARGUMENTS, fun: JSMSG_GENEXP_ARGUMENTS, gen: JSMSG_GENEXP_ARGUMENTS, desc: "deeply nested arguments in genexp" },
+  { expr: "((((1, arguments)) for (x in [])) for (y in []))", top: JSMSG_GENEXP_ARGUMENTS, fun: JSMSG_GENEXP_ARGUMENTS, gen: JSMSG_GENEXP_ARGUMENTS, desc: "deeply nested arguments in multiple genexps" },
 
   // legal yield/arguments in nested function
   { expr: "((function() { yield }) for (x in []))",           top: null, fun: null, gen: null, desc: "legal yield in nested function" },

@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,12 +7,16 @@
 /*
  * Portable double to alphanumeric string and back converters.
  */
-
-#include "jsdtoa.h"
-
-#include "jsprf.h"
 #include "jstypes.h"
-#include "jsutil.h"
+#include "jsdtoa.h"
+#include "jsprf.h"
+#include "jsapi.h"
+#include "jsprvtd.h"
+#include "jsnum.h"
+#include "jslibmath.h"
+#include "jscntxt.h"
+
+#include "jsobjinlines.h"
 
 using namespace js;
 
@@ -44,11 +48,10 @@ using namespace js;
  * MALLOC gets declared external, and that doesn't work for class members, so
  * wrap.
  */
-static inline void* dtoa_malloc(size_t size) { return js_malloc(size); }
-static inline void dtoa_free(void* p) { return js_free(p); }
+inline void* dtoa_malloc(size_t size) { return OffTheBooks::malloc_(size); }
+inline void dtoa_free(void* p) { return UnwantedForeground::free_(p); }
 
 #define NO_GLOBAL_STATE
-#define NO_ERRNO
 #define MALLOC dtoa_malloc
 #define FREE dtoa_free
 #include "dtoa.c"
@@ -96,13 +99,13 @@ js_dtostr(DtoaState *state, char *buffer, size_t bufferSize, JSDToStrMode mode, 
     dval(d) = dinput;
     numBegin = dtoa(PASS_STATE d, dtoaModes[mode], precision, &decPt, &sign, &numEnd);
     if (!numBegin) {
-        return nullptr;
+        return NULL;
     }
 
     nDigits = numEnd - numBegin;
     JS_ASSERT((size_t) nDigits <= bufferSize - 2);
     if ((size_t) nDigits > bufferSize - 2) {
-        return nullptr;
+        return NULL;
     }
 
     js_memcpy(buffer + 2, numBegin, nDigits);
@@ -113,7 +116,7 @@ js_dtostr(DtoaState *state, char *buffer, size_t bufferSize, JSDToStrMode mode, 
 
     /* If Infinity, -Infinity, or NaN, return the string regardless of mode. */
     if (decPt != 9999) {
-        bool exponentialNotation = false;
+        JSBool exponentialNotation = JS_FALSE;
         int minNDigits = 0;  /* Min number of significant digits required */
         char *p;
         char *q;
@@ -121,7 +124,7 @@ js_dtostr(DtoaState *state, char *buffer, size_t bufferSize, JSDToStrMode mode, 
         switch (mode) {
             case DTOSTR_STANDARD:
                 if (decPt < -5 || decPt > 21)
-                    exponentialNotation = true;
+                    exponentialNotation = JS_TRUE;
                 else
                     minNDigits = decPt;
                 break;
@@ -138,14 +141,14 @@ js_dtostr(DtoaState *state, char *buffer, size_t bufferSize, JSDToStrMode mode, 
                 minNDigits = precision;
                 /* Fall through */
             case DTOSTR_STANDARD_EXPONENTIAL:
-                exponentialNotation = true;
+                exponentialNotation = JS_TRUE;
                 break;
 
             case DTOSTR_PRECISION:
                 JS_ASSERT(precision > 0);
                 minNDigits = precision;
                 if (decPt < -5 || decPt > precision)
-                    exponentialNotation = true;
+                    exponentialNotation = JS_TRUE;
                 break;
         }
 
@@ -298,13 +301,13 @@ js_dtobasestr(DtoaState *state, int base, double dinput)
     JS_ASSERT(base >= 2 && base <= 36);
 
     dval(d) = dinput;
-    buffer = (char*) js_malloc(DTOBASESTR_BUFFER_SIZE);
+    buffer = (char*) OffTheBooks::malloc_(DTOBASESTR_BUFFER_SIZE);
     if (!buffer)
-        return nullptr;
+        return NULL;
     p = buffer;
 
     if (dval(d) < 0.0
-#if defined(XP_WIN)
+#if defined(XP_WIN) || defined(XP_OS2)
         && !((word0(d) & Exp_mask) == Exp_mask && ((word0(d) & Frac_mask) || word1(d))) /* Visual C++ doesn't know how to compare against NaN */
 #endif
        ) {
@@ -342,8 +345,8 @@ js_dtobasestr(DtoaState *state, int base, double dinput)
         if (!b) {
           nomem1:
             Bfree(PASS_STATE b);
-            js_free(buffer);
-            return nullptr;
+            UnwantedForeground::free_(buffer);
+            return NULL;
         }
         do {
             digit = divrem(b, base);
@@ -367,7 +370,7 @@ js_dtobasestr(DtoaState *state, int base, double dinput)
         int32_t s2, done;
         Bigint *b, *s, *mlo, *mhi;
 
-        b = s = mlo = mhi = nullptr;
+        b = s = mlo = mhi = NULL;
 
         *p++ = '.';
         b = d2b(PASS_STATE df, &e, &bbits);
@@ -378,8 +381,8 @@ js_dtobasestr(DtoaState *state, int base, double dinput)
             if (mlo != mhi)
                 Bfree(PASS_STATE mlo);
             Bfree(PASS_STATE mhi);
-            js_free(buffer);
-            return nullptr;
+            UnwantedForeground::free_(buffer);
+            return NULL;
         }
         JS_ASSERT(e < 0);
         /* At this point df = b * 2^e.  e must be less than zero because 0 < df < 1. */
@@ -423,7 +426,7 @@ js_dtobasestr(DtoaState *state, int base, double dinput)
          *   (d - prevDouble(d))/2 = mlo/2^s2;
          *   (nextDouble(d) - d)/2 = mhi/2^s2. */
 
-        done = false;
+        done = JS_FALSE;
         do {
             int32_t j, j1;
             Bigint *delta;
@@ -460,7 +463,7 @@ js_dtobasestr(DtoaState *state, int base, double dinput)
             if (j1 == 0 && !(word1(d) & 1)) {
                 if (j > 0)
                     digit++;
-                done = true;
+                done = JS_TRUE;
             } else
 #endif
             if (j < 0 || (j == 0
@@ -479,10 +482,10 @@ js_dtobasestr(DtoaState *state, int base, double dinput)
                                  * such as 3.5 in base 3.  */
                         digit++;
                 }
-                done = true;
+                done = JS_TRUE;
             } else if (j1 > 0) {
                 digit++;
-                done = true;
+                done = JS_TRUE;
             }
             JS_ASSERT(digit < (uint32_t)base);
             *p++ = BASEDIGIT(digit);

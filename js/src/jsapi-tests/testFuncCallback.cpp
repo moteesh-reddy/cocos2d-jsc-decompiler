@@ -2,7 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "jsapi-tests/tests.h"
+#include "tests.h"
+#include "jsfun.h"
+#include "jscntxt.h"
+
+#include "jsobjinlines.h"
 
 #ifdef MOZ_TRACE_JSCALLS
 
@@ -27,7 +31,7 @@ funcTransition(const JSFunction *,
     }
 }
 
-static bool called2 = false;
+static JSBool called2 = false;
 
 static void
 funcTransition2(const JSFunction *, const JSScript*, const JSContext*, int)
@@ -36,7 +40,7 @@ funcTransition2(const JSFunction *, const JSScript*, const JSContext*, int)
 }
 
 static int overlays = 0;
-static JSFunctionCallback innerCallback = nullptr;
+static JSFunctionCallback innerCallback = NULL;
 static void
 funcTransitionOverlay(const JSFunction *fun,
                       const JSScript *script,
@@ -78,7 +82,7 @@ BEGIN_TEST(testFuncCallback_bug507012)
     CHECK_EQUAL(enters, 777);
 
     // Check whether we can turn off function tracing
-    JS_SetFunctionCallback(cx, nullptr);
+    JS_SetFunctionCallback(cx, NULL);
     EXEC("f(1)");
     CHECK_EQUAL(enters, 777);
     interpreted = enters = leaves = depth = 0;
@@ -131,10 +135,8 @@ virtual
 JSContext *createContext()
 {
     JSContext *cx = JSAPITest::createContext();
-    if (!cx)
-        return nullptr;
-    JS::RuntimeOptionsRef(cx).setBaseline(true)
-                             .setIon(true);
+    if (cx)
+        JS_SetOptions(cx, JS_GetOptions(cx) | JSOPTION_METHODJIT | JSOPTION_PCCOUNT);
     return cx;
 }
 

@@ -4,8 +4,7 @@
    PR:			none.
    Originator:	Blake Chaffin 6/6/2007	 */
 
-/* { dg-do run } */
-
+/* { dg-do run { xfail *-*-* } } */
 #include "ffitest.h"
 
 int main (void)
@@ -13,9 +12,9 @@ int main (void)
 	ffi_cif cif;
 	ffi_type* arg_types[1];
 
-	ffi_type	badType	= ffi_type_void;
-
 	arg_types[0] = NULL;
+
+	ffi_type	badType	= ffi_type_void;
 
 	badType.size = 0;
 

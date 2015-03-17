@@ -1,6 +1,6 @@
 // An onPop handler in a disabled Debugger's frame shouldn't fire.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = new Debugger(g);
 g.eval('function f() { debugger; }');
 var log;

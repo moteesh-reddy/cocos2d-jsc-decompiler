@@ -1,4 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -19,7 +19,7 @@ if (typeof window == 'undefined')
 }
 else
 {
-  expect = /TypeError: Not enough arguments to Window.showModalDialog./;
+  expect = /NS_ERROR_XPC_NOT_ENOUGH_ARGS/;
 
   window._onerror = window.onerror;
   window.onerror = (function (msg, page, line) { 
@@ -31,8 +31,8 @@ else
 
   gDelayTestDriverEnd = true;
 
-  // Trying to set call window.showModalDialog() without any arguments will throw.
-  window.showModalDialog();
+  // Trying to set call window.alert() without any arguments will throw.
+  window.alert();
   actual = 'No Error';
 }
 

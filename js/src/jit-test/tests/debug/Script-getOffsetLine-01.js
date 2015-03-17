@@ -1,6 +1,6 @@
 // Basic getOffsetLine test, using Error.lineNumber as the gold standard.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = Debugger(g);
 var hits;
 dbg.onDebuggerStatement = function (frame) {

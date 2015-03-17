@@ -1,5 +1,3 @@
-enableOsiPointRegisterChecks();
-
 function convertToInt(str) {
     return str | 0;
 }

@@ -1,38 +1,30 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef jsboolinlines_h
-#define jsboolinlines_h
+#ifndef jsboolinlines_h___
+#define jsboolinlines_h___
 
-#include "jsbool.h"
+#include "jsobjinlines.h"
 
-#include "vm/BooleanObject.h"
-#include "vm/WrapperObject.h"
+#include "vm/BooleanObject-inl.h"
 
 namespace js {
 
-bool
-BooleanGetPrimitiveValueSlow(HandleObject);
-
 inline bool
-BooleanGetPrimitiveValue(HandleObject obj)
+BooleanGetPrimitiveValue(JSContext *cx, JSObject &obj, Value *vp)
 {
-    if (obj->is<BooleanObject>())
-        return obj->as<BooleanObject>().unbox();
+    if (obj.isBoolean()) {
+        *vp = BooleanValue(obj.asBoolean().unbox());
+        return true;
+    }
 
-    return BooleanGetPrimitiveValueSlow(obj);
-}
-
-inline bool
-EmulatesUndefined(JSObject *obj)
-{
-    JSObject *actual = MOZ_LIKELY(!obj->is<WrapperObject>()) ? obj : UncheckedUnwrap(obj);
-    return actual->getClass()->emulatesUndefined();
+    extern bool BooleanGetPrimitiveValueSlow(JSContext *, JSObject &, Value *);
+    return BooleanGetPrimitiveValueSlow(cx, obj, vp);
 }
 
 } /* namespace js */
 
-#endif /* jsboolinlines_h */
+#endif /* jsboolinlines_h___ */

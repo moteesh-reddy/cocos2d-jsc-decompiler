@@ -1,4 +1,4 @@
-// |reftest| skip
+// |reftest| fails-if(!xulRuntime.shell)
 // Any copyright is dedicated to the Public Domain.
 // http://creativecommons.org/licenses/publicdomain/
 

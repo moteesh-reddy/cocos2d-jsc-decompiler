@@ -1,0 +1,60 @@
+# HG changeset patch
+# Parent 83b1ddfdda60aae46f8782fc7e02687eee07828d
+# User Jeff Walden <jwalden@mit.edu>
+Bug 835551 - Add a new header consolidating non-configure-generated #defines that we require in order to build.  NOT REVIEWED YET
+
+diff --git a/js/public/RequiredDefines.h b/js/public/RequiredDefines.h
+new file mode 100644
+--- /dev/null
++++ b/js/public/RequiredDefines.h
+@@ -0,0 +1,24 @@
++/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
++ * vim: set ts=8 sw=4 et tw=79:
++ *
++ * This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++/*
++ * Various #defines required to build SpiderMonkey.  Embedders should add this
++ * file to the start of the command line via -include or a similar mechanism,
++ * or SpiderMonkey public headers may not work correctly.
++ */
++
++#ifndef js_RequiredDefines_h___
++#define js_RequiredDefines_h___
++
++/*
++ * The c99 defining the limit macros (UINT32_MAX for example), says:
++ * C++ implementations should define these macros only when __STDC_LIMIT_MACROS
++ * is defined before <stdint.h> is included.
++ */
++#define __STDC_LIMIT_MACROS
++
++#endif /* js_RequiredDefines_h___ */
+diff --git a/js/src/Makefile.in b/js/src/Makefile.in
+--- a/js/src/Makefile.in
++++ b/js/src/Makefile.in
+@@ -220,6 +220,7 @@ EXPORTS_js = \
+ 		HashTable.h \
+ 		LegacyIntTypes.h \
+ 		MemoryMetrics.h \
++		RequiredDefines.h \
+ 		TemplateLib.h \
+ 		Utility.h \
+ 		Vector.h \
+diff --git a/js/src/js-confdefs.h.in b/js/src/js-confdefs.h.in
+--- a/js/src/js-confdefs.h.in
++++ b/js/src/js-confdefs.h.in
+@@ -8,10 +8,6 @@
+ 
+ @ALLDEFINES@
+ 
+-/* The c99 defining the limit macros (UINT32_MAX for example), says:
+- * C++ implementations should define these macros only when __STDC_LIMIT_MACROS
+- * is defined before <stdint.h> is included. */
+-#define __STDC_LIMIT_MACROS
++#include "js/RequiredDefines.h"
+ 
+ #endif /* _JS_CONFDEFS_H_ */
+-

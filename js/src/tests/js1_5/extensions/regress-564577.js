@@ -1,4 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /*
  * Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/licenses/publicdomain/
@@ -43,30 +43,18 @@ function test()
   reportCompare(expect, actual, status);
 
   status = summary + ' ' + inSection(2) + ' ';
-  try {
-    actual = o.bbb();
-  } catch(e) {
-    actual = e + '';
-  }
-  expect = 'TypeError: o.bbb is not a function';
+  actual = o.bbb();
+  expect = 'bbb() null';
   reportCompare(expect, actual, status);
 
   status = summary + ' ' + inSection(3) + ' ';
-  try {
-    actual = o.ccc();
-  } catch(e) {
-    actual = e + '';
-  }
-  expect = 'TypeError: o.ccc is not a function';
+  actual = o.ccc();
+  expect = 'ccc() 77';
   reportCompare(expect, actual, status);
 
   status = summary + ' ' + inSection(4) + ' ';
-  try {
-    actual = o.ddd();
-  } catch(e) {
-    actual = e + '';
-  }
-  expect = 'TypeError: o.ddd is not a function';
+  actual = o.ddd();
+  expect = 'ddd() foo';
   reportCompare(expect, actual, status);
 
   status = summary + ' ' + inSection(5) + ' ';

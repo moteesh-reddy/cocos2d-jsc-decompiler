@@ -1,4 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -20,7 +20,7 @@ var temp;
 enterFunc ('test');
 printBugNumber(BUGNUMBER);
 printStatus (summary);
-
+ 
 var date = new Date("06/05/2005 00:00:00 GMT-0000");
 
 expect = date.getTimezoneOffset() > 0 ? 'Sat' : 'Sun';
@@ -85,6 +85,11 @@ reportCompare(expect, actual, 'Date.toLocaleFormat("%w")');
 expect = '22';
 actual = date.toLocaleFormat('%W');
 reportCompare(expect, actual, 'Date.toLocaleFormat("%W")');
+
+expect = date.toLocaleTimeString();
+actual = date.toLocaleFormat('%X');
+reportCompare(expect, actual, 'Date.toLocaleTimeString() == ' +
+              'Date.toLocaleFormat("%X")');
 
 expect = '05';
 actual = date.toLocaleFormat('%y');

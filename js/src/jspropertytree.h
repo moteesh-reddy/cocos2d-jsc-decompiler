@@ -1,31 +1,27 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* -*- Mode: c++; c-basic-offset: 4; tab-width: 40; indent-tabs-mode: nil -*- */
+/* vim: set ts=40 sw=4 et tw=99: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef jspropertytree_h
-#define jspropertytree_h
+#ifndef jspropertytree_h___
+#define jspropertytree_h___
 
-#include "jsalloc.h"
-#include "jspubtd.h"
+#include "jsprvtd.h"
 
 #include "js/HashTable.h"
 
 namespace js {
 
-class Shape;
-struct StackShape;
-
 struct ShapeHasher {
-    typedef Shape *Key;
-    typedef StackShape Lookup;
+    typedef js::Shape *Key;
+    typedef js::StackShape Lookup;
 
     static inline HashNumber hash(const Lookup &l);
     static inline bool match(Key k, const Lookup &l);
 };
 
-typedef HashSet<Shape *, ShapeHasher, SystemAllocPolicy> KidsHash;
+typedef HashSet<js::Shape *, ShapeHasher, SystemAllocPolicy> KidsHash;
 
 class KidsPointer {
   private:
@@ -42,14 +38,14 @@ class KidsPointer {
     void setNull() { w = 0; }
 
     bool isShape() const { return (w & TAG) == SHAPE && !isNull(); }
-    Shape *toShape() const {
+    js::Shape *toShape() const {
         JS_ASSERT(isShape());
-        return reinterpret_cast<Shape *>(w & ~uintptr_t(TAG));
+        return reinterpret_cast<js::Shape *>(w & ~uintptr_t(TAG));
     }
-    void setShape(Shape *shape) {
+    void setShape(js::Shape *shape) {
         JS_ASSERT(shape);
-        JS_ASSERT((reinterpret_cast<uintptr_t>(static_cast<Shape *>(shape)) & TAG) == 0);
-        w = reinterpret_cast<uintptr_t>(static_cast<Shape *>(shape)) | SHAPE;
+        JS_ASSERT((reinterpret_cast<uintptr_t>(shape) & TAG) == 0);
+        w = reinterpret_cast<uintptr_t>(shape) | SHAPE;
     }
 
     bool isHash() const { return (w & TAG) == HASH; }
@@ -64,43 +60,37 @@ class KidsPointer {
     }
 
 #ifdef DEBUG
-    void checkConsistency(Shape *aKid) const;
+    void checkConsistency(js::Shape *aKid) const;
 #endif
 };
 
 class PropertyTree
 {
-    friend class ::JSFunction;
+    friend struct ::JSFunction;
 
-    JSCompartment *compartment_;
+    JSCompartment *compartment;
 
-    bool insertChild(ExclusiveContext *cx, Shape *parent, Shape *child);
+    bool insertChild(JSContext *cx, js::Shape *parent, js::Shape *child);
 
     PropertyTree();
 
   public:
-    /*
-     * Use a lower limit for objects that are accessed using SETELEM (o[x] = y).
-     * These objects are likely used as hashmaps and dictionary mode is more
-     * efficient in this case.
-     */
-    enum {
-        MAX_HEIGHT = 512,
-        MAX_HEIGHT_WITH_ELEMENTS_ACCESS = 128
-    };
+    enum { MAX_HEIGHT = 128 };
 
-    explicit PropertyTree(JSCompartment *comp)
-        : compartment_(comp)
+    PropertyTree(JSCompartment *comp)
+        : compartment(comp)
     {
     }
 
-    JSCompartment *compartment() { return compartment_; }
+    js::Shape *newShape(JSContext *cx);
+    js::Shape *getChild(JSContext *cx, Shape *parent, uint32_t nfixed, const StackShape &child);
 
-    Shape *newShape(ExclusiveContext *cx);
-    Shape *getChild(ExclusiveContext *cx, Shape *parent, StackShape &child);
-    Shape *lookupChild(ThreadSafeContext *cx, Shape *parent, const StackShape &child);
+#ifdef DEBUG
+    static void dumpShapes(JSRuntime *rt);
+    static void meter(JSBasicStats *bs, js::Shape *node);
+#endif
 };
 
 } /* namespace js */
 
-#endif /* jspropertytree_h */
+#endif /* jspropertytree_h___ */

@@ -1,7 +1,7 @@
 try {
     (function() {
         var m
-        new ArrayBuffer()
+        ArrayBuffer()
         var _ = t
         var _2 = []
     }())
@@ -13,7 +13,7 @@ try {
 } catch (e) {}
 try {
     (function() {
-        true
+        n.(O)
     }())
 } catch (e) {}
 try {

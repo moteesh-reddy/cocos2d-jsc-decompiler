@@ -53,6 +53,7 @@ function test()
 	obj.x;
       }
     } catch (e) {
+      print(e);
     }
   }
 

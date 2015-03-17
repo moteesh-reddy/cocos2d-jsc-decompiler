@@ -1,18 +1,17 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+ * vim: set ts=8 sw=4 et tw=99:
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef shell_jsoptparse_h
-#define shell_jsoptparse_h
+#ifndef jsoptparse_h__
+#define jsoptparse_h__
 
 #include <stdio.h>
 
-#include "jsalloc.h"
-#include "jsutil.h"
-
 #include "js/Vector.h"
+#include "jsalloc.h"
 
 namespace js {
 namespace cli {
@@ -116,7 +115,7 @@ struct StringOption : public ValuedOption
     const char *value;
 
     StringOption(char shortflag, const char *longflag, const char *help, const char *metavar)
-      : ValuedOption(OptionKindString, shortflag, longflag, help, metavar), value(nullptr)
+      : ValuedOption(OptionKindString, shortflag, longflag, help, metavar), value(NULL)
     {}
 
     virtual ~StringOption() {}
@@ -211,18 +210,12 @@ class OptionParser
     size_t      helpWidth;
     size_t      nextArgument;
 
-    // If '--' is passed, all remaining arguments should be interpreted as the
-    // argument at index 'restArgument'. Defaults to the next unassigned
-    // argument.
-    int         restArgument;
-
     static const char prognameMeta[];
 
     Option *findOption(char shortflag);
     const Option *findOption(char shortflag) const;
     Option *findOption(const char *longflag);
     const Option *findOption(const char *longflag) const;
-    int findArgumentIndex(const char *name) const;
     Option *findArgument(const char *name);
     const Option *findArgument(const char *name) const;
 
@@ -234,8 +227,7 @@ class OptionParser
   public:
     explicit OptionParser(const char *usage)
       : helpOption('h', "help", "Display help information"),
-        usage(usage), ver(nullptr), descr(nullptr), descrWidth(80), helpWidth(80),
-        nextArgument(0), restArgument(-1)
+        usage(usage), ver(NULL), descr(NULL), descrWidth(80), helpWidth(80), nextArgument(0)
     {}
 
     ~OptionParser();
@@ -251,7 +243,6 @@ class OptionParser
     void setDescription(const char *description) { descr = description; }
     void setHelpOption(char shortflag, const char *longflag, const char *help);
     void setArgTerminatesOptions(const char *name, bool enabled);
-    void setArgCapturesRest(const char *name);
 
     /* Arguments: no further arguments may be added after a variadic argument. */
 
@@ -291,4 +282,4 @@ class OptionParser
 } /* namespace cli */
 } /* namespace js */
 
-#endif /* shell_jsoptparse_h */
+#endif /* jsoptparse_h__ */

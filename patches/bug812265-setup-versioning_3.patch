@@ -1,0 +1,220 @@
+From a7daae161a9ca790fb15b7be5aba3e9f4ac4a821 Mon Sep 17 00:00:00 2001
+From: Tim Lunn <tim@feathertop.org>
+Date: Tue, 19 Feb 2013 08:41:12 +1100
+Subject: [PATCH] setup versioning and pkg-config support in build system
+
+---
+ js/src/Makefile.in  | 54 +++++++++++++++++++++++++++++++++++++----------------
+ js/src/configure.in | 39 ++++++++++++++++++++++++++++++++++++--
+ js/src/js-config.in |  4 +++-
+ js/src/js.pc.in     | 11 +++++++++++
+ 4 files changed, 89 insertions(+), 19 deletions(-)
+ create mode 100644 js/src/js.pc.in
+
+diff --git a/js/src/Makefile.in b/js/src/Makefile.in
+index 962a5b2..b0fe887 100644
+--- a/js/src/Makefile.in
++++ b/js/src/Makefile.in
+@@ -33,8 +33,13 @@ endif
+ 
+ TEST_DIRS += tests gdb
+ 
+-MODULE		    = js
++ifdef JS_STANDALONE
++MODULE		    = js-@MOZJS_MAJOR_VERSION@.@MOZJS_MINOR_VERSION@@MOZJS_ALPHA@
++LIBRARY_NAME	    = mozjs-@MOZJS_MAJOR_VERSION@.@MOZJS_MINOR_VERSION@@MOZJS_ALPHA@
++else
+ LIBRARY_NAME	    = mozjs
++MODULE		    = js
++endif
+ STATIC_LIBRARY_NAME = js_static
+ GRE_MODULE	    = 1
+ 
+@@ -824,24 +829,40 @@ JS_CONFIG_LIBS=$(EXTRA_DSO_LDOPTS) $(OS_LIBS) $(EXTRA_LIBS)
+ # avoid trying to re-compute all that in the configure script, we just
+ # have the configure script generate this Makefile, and then invoke
+ # this rule.
+-at=@
++
++# set the various definitions that will be substituted for js-config
++# and for the pkg-config .pc file
++JS_CONFIG_SUBSTITUTIONS=\
++	-Dprefix="$(prefix)" \
++	-Dexec_prefix="$(exec_prefix)" \
++	-Dincludedir="$(includedir)" \
++	-Dlibdir="$(libdir)" \
++	-DMODULE="$(MODULE)" \
++	-DMOZILLA_VERSION="$(MOZILLA_VERSION)" \
++	-DLIBRARY_NAME="$(LIBRARY_NAME)" \
++	-DJS_CONFIG_LIBS="$(JS_CONFIG_LIBS)" \
++	-DMOZ_JS_LIBS="$(MOZ_JS_LIBS)" \
++	-DMOZJS_MAJOR_VERSION="$(MOZJS_MAJOR_VERSION)" \
++	-DMOZJS_MINOR_VERSION="$(MOZJS_MINOR_VERSION)" \
++	-DMOZJS_PATCH_VERSION="$(MOZJS_PATCH_VERSION)" \
++	-DMOZJS_ALPHA="$(MOZJS_ALPHA)" \
++	-DNSPR_CFLAGS="$(NSPR_CFLAGS)" \
++	-DNSPR_PKGCONF_CHECK="$(NSPR_PKGCONF_CHECK)"
++
+ js-config: js-config.in Makefile $(DEPTH)/config/autoconf.mk $(topsrcdir)/config/config.mk $(topsrcdir)/config/rules.mk
+-	$(RM) js-config.tmp
+-	sed < $< > js-config.tmp \
+-	-e 's|$(at)prefix$(at)|$(prefix)|' \
+-	-e 's|$(at)exec_prefix$(at)|$(exec_prefix)|' \
+-	-e 's|$(at)includedir$(at)|$(includedir)|' \
+-	-e 's|$(at)libdir$(at)|$(libdir)|' \
+-	-e 's|$(at)MOZILLA_VERSION$(at)|$(MOZILLA_VERSION)|' \
+-	-e 's|$(at)LIBRARY_NAME$(at)|$(LIBRARY_NAME)|' \
+-	-e 's|$(at)NSPR_CFLAGS$(at)|$(NSPR_CFLAGS)|' \
+-	-e 's|$(at)JS_CONFIG_LIBS$(at)|$(JS_CONFIG_LIBS)|' \
+-	-e 's|$(at)MOZ_JS_LIBS$(at)|$(MOZ_JS_LIBS)|' \
++	$(RM) $@.tmp
++	$(PYTHON) $(topsrcdir)/config/Preprocessor.py $(JS_CONFIG_SUBSTITUTIONS) $< > $@.tmp \
+ 	&& mv js-config.tmp $@ && chmod +x $@
+ 
+ SCRIPTS = js-config
+ SDK_BINARY = js-config
+ 
++$(LIBRARY_NAME).pc: js.pc.in
++	$(PYTHON) $(topsrcdir)/config/Preprocessor.py $(JS_CONFIG_SUBSTITUTIONS) $< > $@
++
++install:: $(LIBRARY_NAME).pc
++		$(SYSINSTALL) $^ $(DESTDIR)$(libdir)/pkgconfig
++
+ ######################################################
+ # BEGIN SpiderMonkey header installation
+ #
+@@ -909,9 +930,10 @@ install:: $(EXPORTS_mozilla)
+ install:: $(SCRIPTS)
+ 	$(SYSINSTALL) $^ $(DESTDIR)$(bindir)
+ 
+-install:: $(LIBRARY) $(SHARED_LIBRARY) $(IMPORT_LIBRARY)
+-ifneq (,$(LIBRARY))
+-	$(SYSINSTALL) $(LIBRARY) $(DESTDIR)$(libdir)
++install:: $(REAL_LIBRARY) $(SHARED_LIBRARY) $(IMPORT_LIBRARY)
++ifneq (,$(REAL_LIBRARY))
++	$(SYSINSTALL) $(REAL_LIBRARY) $(DESTDIR)$(libdir)
++	mv -f $(DESTDIR)$(libdir)/$(REAL_LIBRARY) $(subst $(STATIC_LIBRARY_NAME),$(LIBRARY_NAME),$(DESTDIR)$(libdir)/$(REAL_LIBRARY))
+ endif
+ ifneq (,$(SHARED_LIBRARY))
+ 	$(SYSINSTALL) $(SHARED_LIBRARY) $(DESTDIR)$(libdir)
+diff --git a/js/src/configure.in b/js/src/configure.in
+index 2cb27e9..52328a9 100644
+--- a/js/src/configure.in
++++ b/js/src/configure.in
+@@ -51,6 +51,7 @@ _SUBDIR_CONFIG_ARGS="$ac_configure_args"
+ dnl Set the version number of the libs included with mozilla
+ dnl ========================================================
+ NSPR_VERSION=4
++NSPR_MINVER=4.9.2
+ 
+ dnl Set the minimum version of toolkit libs used by mozilla
+ dnl ========================================================
+@@ -216,6 +217,36 @@ else
+     MOZ_ANDROID_NDK
+ fi
+ 
++dnl ==============================================================
++dnl Get mozilla version from central milestone file
++dnl ==============================================================
++MOZILLA_VERSION=`$PERL $srcdir/config/milestone.pl -topsrcdir $srcdir`
++MOZILLA_UAVERSION=`$PERL $srcdir/config/milestone.pl -topsrcdir $srcdir -uaversion`
++
++AC_DEFINE_UNQUOTED(MOZILLA_VERSION,"$MOZILLA_VERSION")
++AC_DEFINE_UNQUOTED(MOZILLA_VERSION_U,$MOZILLA_VERSION)
++AC_DEFINE_UNQUOTED(MOZILLA_UAVERSION,"$MOZILLA_UAVERSION")
++
++# Separate version into components for use in shared object naming etc
++changequote(,)
++MOZJS_MAJOR_VERSION=`echo $MOZILLA_VERSION | sed "s|\(^[0-9]*\)\.[0-9]*.*|\1|"`
++MOZJS_MINOR_VERSION=`echo $MOZILLA_VERSION | sed "s|^[0-9]*\.\([0-9]*\).*|\1|"`
++MOZJS_PATCH_VERSION=`echo $MOZILLA_VERSION | sed "s|^[0-9]*\.[0-9]*[^0-9]*||"`
++IS_ALPHA=`echo $MOZILLA_VERSION | grep [ab]`
++changequote([,])
++if test -n "$IS_ALPHA"; then
++  changequote(,)
++  MOZJS_ALPHA=`echo $MOZILLA_VERSION | sed "s|^[0-9]*\.[0-9\.]*\([^0-9]\).*|\1|"`
++  changequote([,])
++fi
++AC_DEFINE_UNQUOTED(MOZJS_MAJOR_VERSION,"$MOZJS_MAJOR_VERSION")
++AC_DEFINE_UNQUOTED(MOZJS_MINOR_VERSION,"$MOZJS_MINOR_VERSION")
++AC_SUBST(MOZJS_MAJOR_VERSION)
++AC_SUBST(MOZJS_MINOR_VERSION)
++AC_SUBST(MOZJS_PATCH_VERSION)
++AC_SUBST(MOZJS_ALPHA)
++
++
+ dnl ========================================================
+ dnl Checks for compilers.
+ dnl ========================================================
+@@ -3127,13 +3158,16 @@ if test "$_USE_SYSTEM_NSPR" && (test "$NSPR_CFLAGS" -o "$NSPR_LIBS"); then
+ See 'configure --help'.])
+ fi
+ 
+-dnl Top-level Mozilla switched to requiring NSPR 4.8.6 (bug 560582), but we don't need it in JS.
+ if test -n "$_USE_SYSTEM_NSPR"; then
+     MOZ_NATIVE_NSPR=
+-    AM_PATH_NSPR(4.9.2, [MOZ_NATIVE_NSPR=1], [AC_MSG_ERROR([your don't have NSPR installed or your version is too old])])
++    AM_PATH_NSPR($NSPR_MINVER, [MOZ_NATIVE_NSPR=1], [AC_MSG_ERROR([your don't have NSPR installed or your version is too old])])
+ fi
+ 
++NSPR_PKGCONF_CHECK="nspr"
+ if test -n "$MOZ_NATIVE_NSPR"; then
++    # piggy back on $MOZ_NATIVE_NSPR to set a variable for the nspr check for js.pc
++    NSPR_PKGCONF_CHECK="nspr >= $NSPR_MINVER"
++
+     _SAVE_CFLAGS=$CFLAGS
+     CFLAGS="$CFLAGS $NSPR_CFLAGS"
+     AC_TRY_COMPILE([#include "prlog.h"],
+@@ -3144,6 +3178,7 @@ if test -n "$MOZ_NATIVE_NSPR"; then
+                 AC_MSG_ERROR([system NSPR does not support PR_STATIC_ASSERT]))
+     CFLAGS=$_SAVE_CFLAGS
+ fi
++AC_SUBST(NSPR_PKGCONF_CHECK)
+ 
+ dnl ========================================================
+ dnl system zlib Support
+diff --git a/js/src/js-config.in b/js/src/js-config.in
+index 419a773..7a71c59 100644
+--- a/js/src/js-config.in
++++ b/js/src/js-config.in
+@@ -2,9 +2,11 @@
+ # This Source Code Form is subject to the terms of the Mozilla Public
+ # License, v. 2.0. If a copy of the MPL was not distributed with this
+ # file, You can obtain one at http://mozilla.org/MPL/2.0/.
++#filter substitution
+ 
+ prefix='@prefix@'
+ mozilla_version='@MOZILLA_VERSION@'
++MODULE='@MODULE@'
+ LIBRARY_NAME='@LIBRARY_NAME@'
+ NSPR_CFLAGS='@NSPR_CFLAGS@'
+ JS_CONFIG_LIBS='@JS_CONFIG_LIBS@'
+@@ -106,7 +108,7 @@ if test "$echo_libdir" = "yes"; then
+ fi
+ 
+ if test "$echo_cflags" = "yes"; then
+-    echo "-I$includedir/js $NSPR_CFLAGS"
++    echo "-include $includedir/$MODULE/js/RequiredDefines.h -I$includedir/$MODULE $NSPR_CFLAGS"
+ fi
+ 
+ if test "$echo_libs" = "yes"; then
+diff --git a/js/src/js.pc.in b/js/src/js.pc.in
+new file mode 100644
+index 0000000..13d761d
+--- /dev/null
++++ b/js/src/js.pc.in
+@@ -0,0 +1,11 @@
++#filter substitution
++prefix=@prefix@
++libdir=@libdir@
++includedir=@includedir@
++
++Name: SpiderMonkey @MOZILLA_VERSION@
++Description: The Mozilla library for JavaScript
++Version: @MOZILLA_VERSION@
++Requires.private: @NSPR_PKGCONF_CHECK@
++Libs: -L${libdir} -l@LIBRARY_NAME@
++Cflags: -include ${includedir}/@MODULE@/js/RequiredDefines.h -I${includedir}/@MODULE@
+-- 
+1.8.1.2
+

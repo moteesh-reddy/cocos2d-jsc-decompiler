@@ -1,4 +1,4 @@
-/* -*- tab-width: 2; indent-tabs-mode: nil; js-indent-level: 2 -*- */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -34,9 +34,8 @@ function addTestCase( startms, newms ) {
   var DateCase = new Date( startms );
   DateCase.setMilliseconds( newms );
   var DateString = "var date = new Date("+ startms +"); date.setMilliseconds("+ newms +"); date";
-  var localms = UTC( Number(newms) + LocalTime( Number(startms) ) );
-  var UTCDate = UTCDateFromTime( localms );
-  var LocalDate = LocalDateFromTime( localms );
+  var UTCDate = UTCDateFromTime( Number(newms) );
+  var LocalDate = LocalDateFromTime( Number(newms) );
 
   new TestCase( SECTION, DateString+".getTime()",             UTCDate.value,       DateCase.getTime() );
   new TestCase( SECTION, DateString+".valueOf()",             UTCDate.value,       DateCase.valueOf() );

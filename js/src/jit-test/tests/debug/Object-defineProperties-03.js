@@ -1,6 +1,6 @@
 // obj.defineProperties can define accessor properties.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = new Debugger;
 var gw = dbg.addDebuggee(g);
 g.value = undefined;

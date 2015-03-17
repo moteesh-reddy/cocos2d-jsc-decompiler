@@ -1,7 +1,7 @@
 // onPop surfaces.
 load(libdir + "asserts.js");
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = new Debugger(g);
 
 // Assigning a bogus value to Debugger.Frame.prototype.onPop raises a TypeError.
@@ -23,8 +23,6 @@ test(null);
 test(false);
 test(1);
 test("stringy");
-if (typeof Symbol === "function")
-    test(Symbol("symbolic"));
 test({});
 test([]);
 

@@ -1,7 +1,7 @@
 // Debugger.Environment.prototype.callee reveals the callee of environments
 // that have them.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = new Debugger;
 var gw = dbg.addDebuggee(g);
 
@@ -46,6 +46,3 @@ check('m().next();', 'declarative', gw.makeDebuggeeValue(g.m));
 
 g.eval('function n() { let (x = 1) { debugger; } }');
 check('n()', 'declarative', null);
-
-g.eval('function* o() { debugger; yield true; }');
-check('o().next();', 'declarative', gw.makeDebuggeeValue(g.o));

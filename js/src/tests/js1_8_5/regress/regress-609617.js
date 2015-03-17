@@ -1,4 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
  * Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/licenses/publicdomain/
@@ -72,11 +72,12 @@ try {
 }
 assertEq(fooArg, 'x');
 
-/* Delete of a call expression is not an error at all, even in strict mode. */
-function g() {
-    "use strict";
-    assertEq(delete Object(), true);
+/* We extend ES5 by making delete of a call expression a strict mode error. */
+try {
+    eval("(function () { 'use strict'; delete foo('x'); })");
+    assertEq(0, -5);
+} catch (e) {
+    assertEq(e.message, "invalid delete operand");
 }
-g();
 
 reportCompare(0, 0, "ok");

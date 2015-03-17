@@ -1,4 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 4 -*- */
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
  * Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/licenses/publicdomain/
@@ -83,10 +83,6 @@ var Match =
         return (x !== null) && (typeof x === "object");
     }
 
-    function isFunction(x) {
-        return typeof x === "function";
-    }
-
     function isArrayLike(x) {
         return isObject(x) && ("length" in x);
     }
@@ -138,15 +134,6 @@ var Match =
         return true;
     }
 
-    function matchFunction(act, exp) {
-        if (!isFunction(act))
-            throw new MatchError("expected function, got " + quote(act));
-
-        if (act !== exp)
-            throw new MatchError("expected function: " + exp +
-                                 "\nbut got different function: " + act);
-    }
-
     function matchArray(act, exp) {
         if (!isObject(act) || !("length" in act))
             throw new MatchError("expected array-like object, got " + quote(act));
@@ -179,9 +166,6 @@ var Match =
         if (isArrayLike(exp))
             return matchArray(act, exp);
 
-        if (isFunction(exp))
-            return matchFunction(act, exp);
-
         return matchObject(act, exp);
     }
 
@@ -212,17 +196,4 @@ function referencesVia(from, edge, to) {
     for (var e in edges)
         print(e);
     return false;
-}
-
-// Note that AsmJS ArrayBuffers have a minimum size, currently 4096 bytes. If a
-// smaller size is given, a regular ArrayBuffer will be returned instead.
-function AsmJSArrayBuffer(size) {
-    var ab = new ArrayBuffer(size);
-    (new Function('global', 'foreign', 'buffer', '' +
-'        "use asm";' +
-'        var i32 = new global.Int32Array(buffer);' +
-'        function g() {};' +
-'        return g;' +
-''))(Function("return this")(),null,ab);
-    return ab;
 }

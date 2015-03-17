@@ -10,7 +10,7 @@ var global = this;
             configurable: global.__defineSetter__("", function() {})
         }));
     }
-    for (y of [0]) {
+    for each(y in [0]) {
         _ = new f();
     }
 })();

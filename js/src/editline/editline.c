@@ -1,4 +1,5 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -95,7 +96,7 @@ STATIC CHAR		*Line;
 STATIC CONST char	*Prompt;
 STATIC CHAR		*Yanked;
 STATIC char		*Screen;
-STATIC CONST char	NEWLINE[]= CRLF;
+STATIC char		NEWLINE[]= CRLF;
 STATIC HISTORY		H;
 STATIC int		Repeat;
 STATIC int		End;
@@ -105,8 +106,8 @@ STATIC int		Point;
 STATIC int		PushBack;
 STATIC int		Pushed;
 STATIC int		Signal;
-FORWARD CONST KEYMAP	Map[32];
-FORWARD CONST KEYMAP	MetaMap[16];
+FORWARD KEYMAP		Map[32];
+FORWARD KEYMAP		MetaMap[16];
 STATIC SIZE_T		Length;
 STATIC SIZE_T		ScreenCount;
 STATIC SIZE_T		ScreenSize;
@@ -808,7 +809,7 @@ STATIC STATUS
 meta()
 {
     unsigned int	c;
-    CONST KEYMAP	*kp;
+    KEYMAP		*kp;
 
     if ((int)(c = TTYget()) == EOF)
 	return CSeof;
@@ -847,7 +848,7 @@ emacs(c)
     unsigned int	c;
 {
     STATUS		s;
-    const KEYMAP	*kp;
+    KEYMAP		*kp;
 
     if (rl_meta_chars && ISMETA(c)) {
 	Pushed = 1;
@@ -998,7 +999,7 @@ readline(prompt)
     TTYputs((CONST CHAR *)Prompt);
     if ((line = editinput()) != NULL) {
 	line = (CHAR *)strdup((char *)line);
-	TTYputs((CONST CHAR *)NEWLINE);
+	TTYputs((CHAR *)NEWLINE);
 	TTYflush();
     }
     rl_ttyset(1);
@@ -1288,7 +1289,7 @@ last_argument()
     return s;
 }
 
-STATIC CONST KEYMAP Map[32] = {
+STATIC KEYMAP	Map[32] = {
     {	CTL('@'),	ring_bell	},
     {	CTL('A'),	beg_line	},
     {	CTL('B'),	bk_char		},
@@ -1321,7 +1322,7 @@ STATIC CONST KEYMAP Map[32] = {
     {	0,		NULL		}
 };
 
-STATIC CONST KEYMAP MetaMap[16]= {
+STATIC KEYMAP	MetaMap[16]= {
     {	CTL('H'),	bk_kill_word	},
     {	DEL,		bk_kill_word	},
     {	' ',		mk_set		},

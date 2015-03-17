@@ -1,6 +1,5 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -17,12 +16,13 @@
  *         Indeed, if you use this header and third-party code defining these
  *         types, *expect* to encounter either compile errors or link errors,
  *         depending how these types are used and on the order of inclusion.
- *         It is safest to use only the <stdint.h> types.
+ *         It is safest to use only the JSAPI <stdint.h>-style types,
+ *         customizing those types using MOZ_CUSTOM_STDINT_H if necessary.
  */
-#ifndef js_LegacyIntTypes_h
-#define js_LegacyIntTypes_h
+#ifndef PROTYPES_H
+#define PROTYPES_H
 
-#include <stdint.h>
+#include "mozilla/StandardInteger.h"
 
 #include "js-config.h"
 
@@ -56,4 +56,4 @@ typedef int16_t JSInt16;
 typedef int32_t JSInt32;
 typedef int64_t JSInt64;
 
-#endif /* js_LegacyIntTypes_h */
+#endif /* !defined(PROTYPES_H) */

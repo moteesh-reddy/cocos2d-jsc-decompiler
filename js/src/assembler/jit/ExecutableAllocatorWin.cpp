@@ -23,18 +23,24 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "assembler/jit/ExecutableAllocator.h"
+#include "ExecutableAllocator.h"
 
 #if ENABLE_ASSEMBLER && WTF_OS_WINDOWS
 
 #include "jswin.h"
-#include "mozilla/WindowsVersion.h"
+#include "prmjtime.h"
 
-extern uint64_t random_next(uint64_t *, int);
+extern void random_setSeed(int64_t *, int64_t);
+extern uint64_t random_next(int64_t *, int);
 
 namespace JSC {
 
-uint64_t ExecutableAllocator::rngSeed;
+int64_t ExecutableAllocator::rngSeed;
+
+void ExecutableAllocator::initSeed()
+{
+    random_setSeed(&rngSeed, (PRMJ_Now() / 1000) ^ int64_t(this));
+}
 
 size_t ExecutableAllocator::determinePageSize()
 {
@@ -73,8 +79,16 @@ void *ExecutableAllocator::computeRandomAllocationAddress()
 static bool
 RandomizeIsBrokenImpl()
 {
+    OSVERSIONINFO osvi;
+    ZeroMemory(&osvi, sizeof(OSVERSIONINFO));
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+
+    GetVersionEx(&osvi);
+
+    // Version number mapping is available at:
+    // http://msdn.microsoft.com/en-us/library/ms724832%28v=vs.85%29.aspx
     // We disable everything before Vista, for now.
-    return !mozilla::IsVistaOrLater();
+    return osvi.dwMajorVersion <= 5;
 }
 
 static bool
@@ -92,7 +106,7 @@ ExecutablePool::Allocation ExecutableAllocator::systemAlloc(size_t n)
     // Randomization disabled to avoid a performance fault on x64 builds.
     // See bug 728623.
 #ifndef JS_CPU_X64
-    if (!RandomizeIsBroken()) {
+    if (allocBehavior == AllocationCanRandomize && !RandomizeIsBroken()) {
         void *randomAddress = computeRandomAllocationAddress();
         allocation = VirtualAlloc(randomAddress, n, MEM_COMMIT | MEM_RESERVE,
                                   PAGE_EXECUTE_READWRITE);
@@ -107,22 +121,6 @@ ExecutablePool::Allocation ExecutableAllocator::systemAlloc(size_t n)
 void ExecutableAllocator::systemRelease(const ExecutablePool::Allocation& alloc)
 {
     VirtualFree(alloc.pages, 0, MEM_RELEASE);
-}
-
-void
-ExecutablePool::toggleAllCodeAsAccessible(bool accessible)
-{
-    char* begin = m_allocation.pages;
-    size_t size = m_freePtr - begin;
-
-    if (size) {
-        // N.B. DEP is not on automatically in Windows XP, so be sure to use
-        // PAGE_NOACCESS instead of PAGE_READWRITE when making inaccessible.
-        DWORD oldProtect;
-        int flags = accessible ? PAGE_EXECUTE_READWRITE : PAGE_NOACCESS;
-        if (!VirtualProtect(begin, size, flags, &oldProtect))
-            MOZ_CRASH();
-    }
 }
 
 #if ENABLE_ASSEMBLER_WX_EXCLUSIVE

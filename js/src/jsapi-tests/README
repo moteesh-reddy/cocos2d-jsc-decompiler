@@ -35,12 +35,12 @@ Here is a sample test:
 
     BEGIN_TEST(testIntString_bug515273)
     {
-        RootedValue v(cx);
-
+        jsval v;
         EVAL("'42';", &v);
-        JSString *str = v.toString();
-        CHECK(JS_StringHasBeenInterned(cx, str));
-        CHECK(JS_FlatStringEqualsAscii(JS_ASSERT_STRING_IS_FLAT(str), "42"));
+
+        JSString *str = JSVAL_TO_STRING(v);
+        const char *bytes = JS_GetStringBytes(str);
+        CHECK(strcmp(bytes, "42") == 0);
         return true;
     }
     END_TEST(testIntString_bug515273)
@@ -49,7 +49,7 @@ The BEGIN_TEST and END_TEST macros bracket each test. By convention, the test
 name is <testFilename>_<detail>. (The above test is in testIntString.cpp.)
 
 The curly braces are required. This block is the body of a C++ member function
-that returns bool. The test harness calls this member function
+that returns JSBool. The test harness calls this member function
 automatically. If the function returns true, the test passes. False, it fails.
 
 JSAPI tests often need extra global C/C++ code: a JSClass, a getter or setter
@@ -89,19 +89,7 @@ tests.h:
         false, failing the test.
 
         This is like CHECK(sameValue(a, b)) but with a more detailed error
-        message on failure. See sameValue below.
-
-    CHECK_EQUAL(const T &a, const U &b);
-
-        CHECK(a == b), but with a more detailed error message.
-
-    CHECK_NULL(const T *ptr);
-
-        CHECK(ptr == nullptr), but with a more detailed error message.
-
-        (This is here because CHECK_EQUAL(ptr, nullptr) fails to compile on GCC
-        2.5 and before.)
-
+        message. See sameValue below.
 
     bool knownFail;
 
@@ -132,6 +120,8 @@ tests.h:
         SameValue(-0, 0) is false.
         Otherwise SameValue(a, b) iff a === b.
 
+And see class jsvalRoot, also defined in tests.h.
+
 
 --- Custom test setup
 
@@ -141,12 +131,12 @@ function, which populates the rt, cx, and global member variables.
 A test can customize the test setup process by overloading virtual member
 functions, like this:
 
-    const JSClass globalClassWithResolve = { ... };
+    JSClass globalClassWithResolve = { ... };
 
     BEGIN_TEST(testGlobalResolveHook)
         {
-            RootedValue v;
-            EVAL("v", v.address());
+            jsvalRoot v;
+            EVAL("v", v.addr());
             CHECK_SAME(v, JSVAL_VOID);
             return true;
         }

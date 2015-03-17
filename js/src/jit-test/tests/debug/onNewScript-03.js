@@ -1,4 +1,4 @@
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = Debugger(g);
 dbg.onNewScript = function (s) {
     eval(longScript);

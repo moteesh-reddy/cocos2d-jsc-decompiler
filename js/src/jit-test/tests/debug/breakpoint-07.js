@@ -1,6 +1,6 @@
 // Code runs fine if do-nothing breakpoints are set on every line.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var src = ("var line0 = Error().lineNumber;\n" +
            "function gcd(a, b) {\n" +       // line0 + 1
            "    if (a > b)\n" +             // line0 + 2

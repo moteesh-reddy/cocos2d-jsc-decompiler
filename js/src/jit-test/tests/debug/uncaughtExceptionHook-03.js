@@ -1,7 +1,7 @@
 // |jit-test| debug; error: ReferenceError
 // If uncaughtExceptionHook is absent, the debuggee is terminated.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 g.debuggeeGlobal = this;
 g.eval("(" + function () {
         var dbg = Debugger(debuggeeGlobal);

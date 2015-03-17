@@ -1,6 +1,6 @@
 // Hitting a breakpoint with no hit method does nothing.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 g.s = '';
 g.eval("var line0 = Error().lineNumber;\n" +
        "function f() {\n" +   // line0 + 1

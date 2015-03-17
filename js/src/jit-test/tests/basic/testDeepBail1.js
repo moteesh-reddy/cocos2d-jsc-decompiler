@@ -1,5 +1,5 @@
 function testDeepBail1() {
-    var y = [1,2,3];
+    var y = <z/>;
     for (var i = 0; i < 9; i++)
         "" in y;
 }

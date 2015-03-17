@@ -1,5 +1,5 @@
 try {
-    for (let z = 0; z < 1; ++evalcx("[]", newGlobal())) {}
+    for (let z = 0; z < 1; ++evalcx("[]", newGlobal("new-compartment"))) {}
 } catch (e) {}
 try {
     for (y in [schedulegc(58)]) {

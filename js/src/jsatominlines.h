@@ -1,20 +1,18 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef jsatominlines_h
-#define jsatominlines_h
+#ifndef jsatominlines_h___
+#define jsatominlines_h___
 
 #include "jsatom.h"
-
-#include "mozilla/PodOperations.h"
-#include "mozilla/RangedPtr.h"
-
-#include "jscntxt.h"
 #include "jsnum.h"
+#include "jsobj.h"
+#include "jsstr.h"
 
+#include "mozilla/RangedPtr.h"
 #include "vm/String.h"
 
 inline JSAtom *
@@ -28,61 +26,41 @@ js::AtomStateEntry::asPtr() const
 
 namespace js {
 
-inline jsid
-AtomToId(JSAtom *atom)
+inline JSAtom *
+ToAtom(JSContext *cx, const js::Value &v)
 {
-    JS_STATIC_ASSERT(JSID_INT_MIN == 0);
+    if (!v.isString()) {
+        JSString *str = js::ToStringSlow(cx, v);
+        if (!str)
+            return NULL;
+        JS::Anchor<JSString *> anchor(str);
+        return AtomizeString(cx, str);
+    }
 
-    uint32_t index;
-    if (atom->isIndex(&index) && index <= JSID_INT_MAX)
-        return INT_TO_JSID(int32_t(index));
+    JSString *str = v.toString();
+    if (str->isAtom())
+        return &str->asAtom();
 
-    return JSID_FROM_BITS(size_t(atom));
+    JS::Anchor<JSString *> anchor(str);
+    return AtomizeString(cx, str);
 }
 
 inline bool
-ValueToIdPure(const Value &v, jsid *id)
+ValueToId(JSContext* cx, JSObject *obj, const Value &v, jsid *idp)
 {
     int32_t i;
     if (ValueFitsInInt32(v, &i) && INT_FITS_IN_JSID(i)) {
-        *id = INT_TO_JSID(i);
+        *idp = INT_TO_JSID(i);
         return true;
     }
 
-    if (v.isSymbol()) {
-        *id = SYMBOL_TO_JSID(v.toSymbol());
-        return true;
-    }
-
-    if (!v.isString() || !v.toString()->isAtom())
-        return false;
-
-    *id = AtomToId(&v.toString()->asAtom());
-    return true;
+    return InternNonIntElementId(cx, obj, v, idp);
 }
 
-template <AllowGC allowGC>
 inline bool
-ValueToId(JSContext* cx, typename MaybeRooted<Value, allowGC>::HandleType v,
-          typename MaybeRooted<jsid, allowGC>::MutableHandleType idp)
+ValueToId(JSContext* cx, const Value &v, jsid *idp)
 {
-    int32_t i;
-    if (ValueFitsInInt32(v, &i) && INT_FITS_IN_JSID(i)) {
-        idp.set(INT_TO_JSID(i));
-        return true;
-    }
-
-    if (v.isSymbol()) {
-        idp.set(SYMBOL_TO_JSID(v.toSymbol()));
-        return true;
-    }
-
-    JSAtom *atom = ToAtom<allowGC>(cx, v);
-    if (!atom)
-        return false;
-
-    idp.set(AtomToId(atom));
-    return true;
+    return ValueToId(cx, NULL, v, idp);
 }
 
 /*
@@ -114,49 +92,52 @@ BackfillIndexInCharBuffer(uint32_t index, mozilla::RangedPtr<T> end)
     return end;
 }
 
-bool
-IndexToIdSlow(ExclusiveContext *cx, uint32_t index, MutableHandleId idp);
-
 inline bool
-IndexToId(ExclusiveContext *cx, uint32_t index, MutableHandleId idp)
+IndexToId(JSContext *cx, uint32_t index, jsid *idp)
 {
+    MaybeCheckStackRoots(cx);
+
     if (index <= JSID_INT_MAX) {
-        idp.set(INT_TO_JSID(index));
+        *idp = INT_TO_JSID(index);
         return true;
     }
 
+    extern bool IndexToIdSlow(JSContext *cx, uint32_t index, jsid *idp);
     return IndexToIdSlow(cx, index, idp);
 }
 
-static MOZ_ALWAYS_INLINE JSFlatString *
+inline jsid
+AtomToId(JSAtom *atom)
+{
+    JS_STATIC_ASSERT(JSID_INT_MIN == 0);
+
+    uint32_t index;
+    if (atom->isIndex(&index) && index <= JSID_INT_MAX)
+        return INT_TO_JSID((int32_t) index);
+
+    return JSID_FROM_BITS((size_t)atom);
+}
+
+static JS_ALWAYS_INLINE JSFlatString *
 IdToString(JSContext *cx, jsid id)
 {
     if (JSID_IS_STRING(id))
         return JSID_TO_ATOM(id);
 
-    if (MOZ_LIKELY(JSID_IS_INT(id)))
-        return Int32ToString<CanGC>(cx, JSID_TO_INT(id));
+    if (JS_LIKELY(JSID_IS_INT(id)))
+        return Int32ToString(cx, JSID_TO_INT(id));
 
-    RootedValue idv(cx, IdToValue(id));
-    JSString *str = ToStringSlow<CanGC>(cx, idv);
+    JSString *str = ToStringSlow(cx, IdToValue(id));
     if (!str)
-        return nullptr;
+        return NULL;
 
     return str->ensureFlat(cx);
 }
 
 inline
 AtomHasher::Lookup::Lookup(const JSAtom *atom)
-  : isLatin1(atom->hasLatin1Chars()), length(atom->length()), atom(atom)
-{
-    if (isLatin1) {
-        latin1Chars = atom->latin1Chars(nogc);
-        hash = mozilla::HashString(latin1Chars, length);
-    } else {
-        twoByteChars = atom->twoByteChars(nogc);
-        hash = mozilla::HashString(twoByteChars, length);
-    }
-}
+  : chars(atom->chars()), length(atom->length()), atom(atom)
+{}
 
 inline bool
 AtomHasher::match(const AtomStateEntry &entry, const Lookup &lookup)
@@ -166,54 +147,9 @@ AtomHasher::match(const AtomStateEntry &entry, const Lookup &lookup)
         return lookup.atom == key;
     if (key->length() != lookup.length)
         return false;
-
-    if (key->hasLatin1Chars()) {
-        const Latin1Char *keyChars = key->latin1Chars(lookup.nogc);
-        if (lookup.isLatin1)
-            return mozilla::PodEqual(keyChars, lookup.latin1Chars, lookup.length);
-        return EqualChars(keyChars, lookup.twoByteChars, lookup.length);
-    }
-
-    const jschar *keyChars = key->twoByteChars(lookup.nogc);
-    if (lookup.isLatin1)
-        return EqualChars(lookup.latin1Chars, keyChars, lookup.length);
-    return mozilla::PodEqual(keyChars, lookup.twoByteChars, lookup.length);
-}
-
-inline Handle<PropertyName*>
-TypeName(JSType type, const JSAtomState &names)
-{
-    JS_ASSERT(type < JSTYPE_LIMIT);
-    JS_STATIC_ASSERT(offsetof(JSAtomState, undefined) +
-                     JSTYPE_LIMIT * sizeof(ImmutablePropertyNamePtr) <=
-                     sizeof(JSAtomState));
-    JS_STATIC_ASSERT(JSTYPE_VOID == 0);
-    return (&names.undefined)[type];
-}
-
-inline Handle<PropertyName*>
-ClassName(JSProtoKey key, JSAtomState &atomState)
-{
-    JS_ASSERT(key < JSProto_LIMIT);
-    JS_STATIC_ASSERT(offsetof(JSAtomState, Null) +
-                     JSProto_LIMIT * sizeof(ImmutablePropertyNamePtr) <=
-                     sizeof(JSAtomState));
-    JS_STATIC_ASSERT(JSProto_Null == 0);
-    return (&atomState.Null)[key];
-}
-
-inline Handle<PropertyName*>
-ClassName(JSProtoKey key, JSRuntime *rt)
-{
-    return ClassName(key, *rt->commonNames);
-}
-
-inline Handle<PropertyName*>
-ClassName(JSProtoKey key, ExclusiveContext *cx)
-{
-    return ClassName(key, cx->names());
+    return PodEqual(key->chars(), lookup.chars, lookup.length);
 }
 
 } // namespace js
 
-#endif /* jsatominlines_h */
+#endif /* jsatominlines_h___ */

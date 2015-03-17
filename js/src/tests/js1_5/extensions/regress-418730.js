@@ -25,6 +25,7 @@ try {
   print("PASS (1)");
 } catch(e) {
   print("PASS (2)");
+  print(e);
 }
 
 actual = 'PASS';

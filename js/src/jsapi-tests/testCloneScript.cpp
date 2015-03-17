@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+ * vim: set ts=8 sw=4 et tw=99:
  *
  * Test script cloning.
  */
@@ -7,9 +7,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "jsfriendapi.h"
-#include "js/OldDebugAPI.h"
-#include "jsapi-tests/tests.h"
+
+#include "tests.h"
+#include "jsdbgapi.h"
 
 BEGIN_TEST(test_cloneScript)
 {
@@ -33,11 +33,8 @@ BEGIN_TEST(test_cloneScript)
     // compile for A
     {
         JSAutoCompartment a(cx, A);
-        JS::RootedFunction fun(cx);
-        JS::CompileOptions options(cx);
-        options.setFileAndLine(__FILE__, 1);
-        CHECK(JS_CompileFunction(cx, A, "f", 0, nullptr, source,
-                                 strlen(source), options, &fun));
+        JSFunction *fun;
+        CHECK(fun = JS_CompileFunction(cx, A, "f", 0, NULL, source, strlen(source), __FILE__, 1));
         CHECK(obj = JS_GetFunctionObject(fun));
     }
 
@@ -51,7 +48,7 @@ BEGIN_TEST(test_cloneScript)
 }
 END_TEST(test_cloneScript)
 
-static void
+void
 DestroyPrincipals(JSPrincipals *principals)
 {
     delete principals;
@@ -107,13 +104,10 @@ BEGIN_TEST(test_cloneScriptWithPrincipals)
     // Compile in A
     {
         JSAutoCompartment a(cx, A);
-        JS::CompileOptions options(cx);
-        options.setFileAndLine(__FILE__, 1);
-        JS::RootedFunction fun(cx);
-        JS_CompileFunction(cx, A, "f",
-                           mozilla::ArrayLength(argnames), argnames, source,
-                           strlen(source), options, &fun);
-        CHECK(fun);
+        JSFunction *fun;
+        CHECK(fun = JS_CompileFunctionForPrincipals(cx, A, principalsA, "f",
+                                                    mozilla::ArrayLength(argnames), argnames,
+                                                    source, strlen(source), __FILE__, 1));
 
         JSScript *script;
         CHECK(script = JS_GetFunctionScript(cx, fun));
@@ -128,18 +122,17 @@ BEGIN_TEST(test_cloneScriptWithPrincipals)
         JS::RootedObject cloned(cx);
         CHECK(cloned = JS_CloneFunctionObject(cx, obj, B));
 
-        JS::RootedFunction fun(cx);
-        JS::RootedValue clonedValue(cx, JS::ObjectValue(*cloned));
-        CHECK(fun = JS_ValueToFunction(cx, clonedValue));
+        JSFunction *fun;
+        CHECK(fun = JS_ValueToFunction(cx, JS::ObjectValue(*cloned)));
 
         JSScript *script;
         CHECK(script = JS_GetFunctionScript(cx, fun));
 
         CHECK(JS_GetScriptPrincipals(script) == principalsB);
 
-        JS::RootedValue v(cx);
-        JS::RootedValue arg(cx, JS::Int32Value(1));
-        CHECK(JS_CallFunctionValue(cx, B, clonedValue, JS::HandleValueArray(arg), &v));
+        JS::Value v;
+        JS::Value args[] = { JS::Int32Value(1) };
+        CHECK(JS_CallFunctionValue(cx, B, JS::ObjectValue(*cloned), 1, args, &v));
         CHECK(v.isObject());
 
         JSObject *funobj = &v.toObject();

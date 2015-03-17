@@ -1,28 +1,15 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /* Helpers for defining and using refcounted objects. */
 
-#ifndef mozilla_RefPtr_h
-#define mozilla_RefPtr_h
+#ifndef mozilla_RefPtr_h_
+#define mozilla_RefPtr_h_
 
 #include "mozilla/Assertions.h"
-#include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/NullPtr.h"
-#include "mozilla/RefCountType.h"
-#include "mozilla/TypeTraits.h"
-#if defined(MOZILLA_INTERNAL_API)
-#include "nsXPCOM.h"
-#endif
-
-#if defined(MOZILLA_INTERNAL_API) && \
-    (defined(DEBUG) || defined(FORCE_BUILD_REFCNT_LOGGING))
-#define MOZ_REFCOUNTED_LEAK_CHECKING
-#endif
 
 namespace mozilla {
 
@@ -49,167 +36,47 @@ template<typename T> OutParamRef<T> byRef(RefPtr<T>&);
  * live RefCounted<T> are controlled by RefPtr<T> and
  * RefPtr<super/subclass of T>.  Upon a transition from refcounted==1
  * to 0, the RefCounted<T> "dies" and is destroyed.  The "destroyed"
- * state is represented in DEBUG builds by refcount==0xffffdead.  This
+ * state is represented in DEBUG builds by refcount==-0xdead.  This
  * state distinguishes use-before-ref (refcount==0) from
- * use-after-destroy (refcount==0xffffdead).
- *
- * Note that when deriving from RefCounted or AtomicRefCounted, you
- * should add MOZ_DECLARE_REFCOUNTED_TYPENAME(ClassName) to the public
- * section of your class, where ClassName is the name of your class.
+ * use-after-destroy (refcount==-0xdead).
  */
-namespace detail {
-#ifdef DEBUG
-const MozRefCountType DEAD = 0xffffdead;
-#endif
-
-// When building code that gets compiled into Gecko, try to use the
-// trace-refcount leak logging facilities.
-#ifdef MOZ_REFCOUNTED_LEAK_CHECKING
-class RefCountLogger
-{
-public:
-  static void logAddRef(const void* aPointer, MozRefCountType aRefCount,
-                        const char* aTypeName, uint32_t aInstanceSize)
-  {
-    MOZ_ASSERT(aRefCount != DEAD);
-    NS_LogAddRef(const_cast<void*>(aPointer), aRefCount, aTypeName,
-                 aInstanceSize);
-  }
-
-  static void logRelease(const void* aPointer, MozRefCountType aRefCount,
-                         const char* aTypeName)
-  {
-    MOZ_ASSERT(aRefCount != DEAD);
-    NS_LogRelease(const_cast<void*>(aPointer), aRefCount, aTypeName);
-  }
-};
-#endif
-
-// This is used WeakPtr.h as well as this file.
-enum RefCountAtomicity
-{
-  AtomicRefCount,
-  NonAtomicRefCount
-};
-
-template<typename T, RefCountAtomicity Atomicity>
+template<typename T>
 class RefCounted
 {
-  friend class RefPtr<T>;
+    friend class RefPtr<T>;
 
-protected:
-  RefCounted() : mRefCnt(0) {}
-  ~RefCounted() { MOZ_ASSERT(mRefCnt == detail::DEAD); }
+  public:
+    RefCounted() : refCnt(0) { }
+    ~RefCounted() { MOZ_ASSERT(refCnt == -0xdead); }
 
-public:
-  // Compatibility with nsRefPtr.
-  void AddRef() const
-  {
-    // Note: this method must be thread safe for AtomicRefCounted.
-    MOZ_ASSERT(int32_t(mRefCnt) >= 0);
-#ifndef MOZ_REFCOUNTED_LEAK_CHECKING
-    ++mRefCnt;
-#else
-    const char* type = static_cast<const T*>(this)->typeName();
-    uint32_t size = static_cast<const T*>(this)->typeSize();
-    const void* ptr = static_cast<const T*>(this);
-    MozRefCountType cnt = ++mRefCnt;
-    detail::RefCountLogger::logAddRef(ptr, cnt, type, size);
-#endif
-  }
-
-  void Release() const
-  {
-    // Note: this method must be thread safe for AtomicRefCounted.
-    MOZ_ASSERT(int32_t(mRefCnt) > 0);
-#ifndef MOZ_REFCOUNTED_LEAK_CHECKING
-    MozRefCountType cnt = --mRefCnt;
-#else
-    const char* type = static_cast<const T*>(this)->typeName();
-    const void* ptr = static_cast<const T*>(this);
-    MozRefCountType cnt = --mRefCnt;
-    // Note: it's not safe to touch |this| after decrementing the refcount,
-    // except for below.
-    detail::RefCountLogger::logRelease(ptr, cnt, type);
-#endif
-    if (0 == cnt) {
-      // Because we have atomically decremented the refcount above, only
-      // one thread can get a 0 count here, so as long as we can assume that
-      // everything else in the system is accessing this object through
-      // RefPtrs, it's safe to access |this| here.
-#ifdef DEBUG
-      mRefCnt = detail::DEAD;
-#endif
-      delete static_cast<const T*>(this);
+    // Compatibility with nsRefPtr.
+    void AddRef() {
+      MOZ_ASSERT(refCnt >= 0);
+      ++refCnt;
     }
-  }
 
-  // Compatibility with wtf::RefPtr.
-  void ref() { AddRef(); }
-  void deref() { Release(); }
-  MozRefCountType refCount() const { return mRefCnt; }
-  bool hasOneRef() const
-  {
-    MOZ_ASSERT(mRefCnt > 0);
-    return mRefCnt == 1;
-  }
-
-private:
-  mutable typename Conditional<Atomicity == AtomicRefCount,
-                               Atomic<MozRefCountType>,
-                               MozRefCountType>::Type mRefCnt;
-};
-
-#ifdef MOZ_REFCOUNTED_LEAK_CHECKING
-#define MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(T) \
-  virtual const char* typeName() const { return #T; } \
-  virtual size_t typeSize() const { return sizeof(*this); }
-#else
-#define MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(T)
+    void Release() {
+      MOZ_ASSERT(refCnt > 0);
+      if (0 == --refCnt) {
+#ifdef DEBUG
+        refCnt = -0xdead;
 #endif
+        delete static_cast<T*>(this);
+      }
+    }
 
-// Note that this macro is expanded unconditionally because it declares only
-// two small inline functions which will hopefully get eliminated by the linker
-// in non-leak-checking builds.
-#define MOZ_DECLARE_REFCOUNTED_TYPENAME(T) \
-  const char* typeName() const { return #T; } \
-  size_t typeSize() const { return sizeof(*this); }
+    // Compatibility with wtf::RefPtr.
+    void ref() { AddRef(); }
+    void deref() { Release(); }
+    int refCount() const { return refCnt; }
+    bool hasOneRef() const {
+      MOZ_ASSERT(refCnt > 0);
+      return refCnt == 1;
+    }
 
-} // namespace detail
-
-template<typename T>
-class RefCounted : public detail::RefCounted<T, detail::NonAtomicRefCount>
-{
-public:
-  ~RefCounted()
-  {
-    static_assert(IsBaseOf<RefCounted, T>::value,
-                  "T must derive from RefCounted<T>");
-  }
+  private:
+    int refCnt;
 };
-
-namespace external {
-
-/**
- * AtomicRefCounted<T> is like RefCounted<T>, with an atomically updated
- * reference counter.
- *
- * NOTE: Please do not use this class, use NS_INLINE_DECL_THREADSAFE_REFCOUNTING
- * instead.
- */
-template<typename T>
-class AtomicRefCounted :
-  public mozilla::detail::RefCounted<T, mozilla::detail::AtomicRefCount>
-{
-public:
-  ~AtomicRefCounted()
-  {
-    static_assert(IsBaseOf<AtomicRefCounted, T>::value,
-                  "T must derive from AtomicRefCounted<T>");
-  }
-};
-
-} // namespace external
 
 /**
  * RefPtr points to a refcounted thing that has AddRef and Release
@@ -224,83 +91,73 @@ public:
 template<typename T>
 class RefPtr
 {
-  // To allow them to use unref()
-  friend class TemporaryRef<T>;
-  friend class OutParamRef<T>;
+    // To allow them to use unref()
+    friend class TemporaryRef<T>;
+    friend class OutParamRef<T>;
 
-  struct DontRef {};
+    struct DontRef {};
 
-public:
-  RefPtr() : mPtr(0) {}
-  RefPtr(const RefPtr& aOther) : mPtr(ref(aOther.mPtr)) {}
-  MOZ_IMPLICIT RefPtr(const TemporaryRef<T>& aOther) : mPtr(aOther.drop()) {}
-  MOZ_IMPLICIT RefPtr(T* aVal) : mPtr(ref(aVal)) {}
+  public:
+    RefPtr() : ptr(0) { }
+    RefPtr(const RefPtr& o) : ptr(ref(o.ptr)) {}
+    RefPtr(const TemporaryRef<T>& o) : ptr(o.drop()) {}
+    RefPtr(T* t) : ptr(ref(t)) {}
 
-  template<typename U>
-  RefPtr(const RefPtr<U>& aOther) : mPtr(ref(aOther.get())) {}
+    template<typename U>
+    RefPtr(const RefPtr<U>& o) : ptr(ref(o.get())) {}
 
-  ~RefPtr() { unref(mPtr); }
+    ~RefPtr() { unref(ptr); }
 
-  RefPtr& operator=(const RefPtr& aOther)
-  {
-    assign(ref(aOther.mPtr));
-    return *this;
-  }
-  RefPtr& operator=(const TemporaryRef<T>& aOther)
-  {
-    assign(aOther.drop());
-    return *this;
-  }
-  RefPtr& operator=(T* aVal)
-  {
-    assign(ref(aVal));
-    return *this;
-  }
-
-  template<typename U>
-  RefPtr& operator=(const RefPtr<U>& aOther)
-  {
-    assign(ref(aOther.get()));
-    return *this;
-  }
-
-  TemporaryRef<T> forget()
-  {
-    T* tmp = mPtr;
-    mPtr = nullptr;
-    return TemporaryRef<T>(tmp, DontRef());
-  }
-
-  T* get() const { return mPtr; }
-  operator T*() const { return mPtr; }
-  T* operator->() const { return mPtr; }
-  T& operator*() const { return *mPtr; }
-  template<typename U>
-  operator TemporaryRef<U>() { return TemporaryRef<U>(mPtr); }
-
-private:
-  void assign(T* aVal)
-  {
-    unref(mPtr);
-    mPtr = aVal;
-  }
-
-  T* mPtr;
-
-  static MOZ_ALWAYS_INLINE T* ref(T* aVal)
-  {
-    if (aVal) {
-      aVal->AddRef();
+    RefPtr& operator=(const RefPtr& o) {
+      assign(ref(o.ptr));
+      return *this;
     }
-    return aVal;
-  }
-
-  static MOZ_ALWAYS_INLINE void unref(T* aVal)
-  {
-    if (aVal) {
-      aVal->Release();
+    RefPtr& operator=(const TemporaryRef<T>& o) {
+      assign(o.drop());
+      return *this;
     }
-  }
+    RefPtr& operator=(T* t) {
+      assign(ref(t));
+      return *this;
+    }
+
+    template<typename U>
+    RefPtr& operator=(const RefPtr<U>& o) {
+      assign(ref(o.get()));
+      return *this;
+    }
+
+    TemporaryRef<T> forget() {
+      T* tmp = ptr;
+      ptr = 0;
+      return TemporaryRef<T>(tmp, DontRef());
+    }
+
+    T* get() const { return ptr; }
+    operator T*() const { return ptr; }
+    T* operator->() const { return ptr; }
+    T& operator*() const { return *ptr; }
+    template<typename U>
+    operator TemporaryRef<U>() { return TemporaryRef<U>(ptr); }
+
+  private:
+    void assign(T* t) {
+      unref(ptr);
+      ptr = t;
+    }
+
+    T* ptr;
+
+    static MOZ_ALWAYS_INLINE T* ref(T* t) {
+      if (t)
+        t->AddRef();
+      return t;
+    }
+
+    static MOZ_ALWAYS_INLINE void unref(T* t) {
+      if (t)
+        t->Release();
+    }
 };
 
 /**
@@ -312,34 +169,33 @@ private:
 template<typename T>
 class TemporaryRef
 {
-  // To allow it to construct TemporaryRef from a bare T*
-  friend class RefPtr<T>;
+    // To allow it to construct TemporaryRef from a bare T*
+    friend class RefPtr<T>;
 
-  typedef typename RefPtr<T>::DontRef DontRef;
+    typedef typename RefPtr<T>::DontRef DontRef;
 
-public:
-  MOZ_IMPLICIT TemporaryRef(T* aVal) : mPtr(RefPtr<T>::ref(aVal)) {}
-  TemporaryRef(const TemporaryRef& aOther) : mPtr(aOther.drop()) {}
+  public:
+    TemporaryRef(T* t) : ptr(RefPtr<T>::ref(t)) {}
+    TemporaryRef(const TemporaryRef& o) : ptr(o.drop()) {}
 
-  template<typename U>
-  TemporaryRef(const TemporaryRef<U>& aOther) : mPtr(aOther.drop()) {}
+    template<typename U>
+    TemporaryRef(const TemporaryRef<U>& o) : ptr(o.drop()) {}
 
-  ~TemporaryRef() { RefPtr<T>::unref(mPtr); }
+    ~TemporaryRef() { RefPtr<T>::unref(ptr); }
 
-  T* drop() const
-  {
-    T* tmp = mPtr;
-    mPtr = nullptr;
-    return tmp;
-  }
+    T* drop() const {
+      T* tmp = ptr;
+      ptr = 0;
+      return tmp;
+    }
 
-private:
-  TemporaryRef(T* aVal, const DontRef&) : mPtr(aVal) {}
+  private:
+    TemporaryRef(T* t, const DontRef&) : ptr(t) {}
 
-  mutable T* mPtr;
+    mutable T* ptr;
 
-  TemporaryRef() MOZ_DELETE;
-  void operator=(const TemporaryRef&) MOZ_DELETE;
+    TemporaryRef() MOZ_DELETE;
+    void operator=(const TemporaryRef&) MOZ_DELETE;
 };
 
 /**
@@ -359,25 +215,24 @@ private:
 template<typename T>
 class OutParamRef
 {
-  friend OutParamRef byRef<T>(RefPtr<T>&);
+    friend OutParamRef byRef<T>(RefPtr<T>&);
 
-public:
-  ~OutParamRef()
-  {
-    RefPtr<T>::unref(mRefPtr.mPtr);
-    mRefPtr.mPtr = mTmp;
-  }
+  public:
+    ~OutParamRef() {
+      RefPtr<T>::unref(refPtr.ptr);
+      refPtr.ptr = tmp;
+    }
 
-  operator T**() { return &mTmp; }
+    operator T**() { return &tmp; }
 
-private:
-  explicit OutParamRef(RefPtr<T>& p) : mRefPtr(p), mTmp(p.get()) {}
+  private:
+    OutParamRef(RefPtr<T>& p) : refPtr(p), tmp(p.get()) {}
 
-  RefPtr<T>& mRefPtr;
-  T* mTmp;
+    RefPtr<T>& refPtr;
+    T* tmp;
 
-  OutParamRef() MOZ_DELETE;
-  OutParamRef& operator=(const OutParamRef&) MOZ_DELETE;
+    OutParamRef() MOZ_DELETE;
+    OutParamRef& operator=(const OutParamRef&) MOZ_DELETE;
 };
 
 /**
@@ -385,12 +240,15 @@ private:
  */
 template<typename T>
 OutParamRef<T>
-byRef(RefPtr<T>& aPtr)
+byRef(RefPtr<T>& ptr)
 {
-  return OutParamRef<T>(aPtr);
+  return OutParamRef<T>(ptr);
 }
 
 } // namespace mozilla
+
+#endif // mozilla_RefPtr_h_
+
 
 #if 0
 
@@ -402,21 +260,19 @@ using namespace mozilla;
 
 struct Foo : public RefCounted<Foo>
 {
-  MOZ_DECLARE_REFCOUNTED_TYPENAME(Foo)
-  Foo() : mDead(false) {}
-  ~Foo()
-  {
-    MOZ_ASSERT(!mDead);
-    mDead = true;
-    sNumDestroyed++;
+  Foo() : dead(false) { }
+  ~Foo() {
+    MOZ_ASSERT(!dead);
+    dead = true;
+    numDestroyed++;
   }
 
-  bool mDead;
-  static int sNumDestroyed;
+  bool dead;
+  static int numDestroyed;
 };
-int Foo::sNumDestroyed;
+int Foo::numDestroyed;
 
-struct Bar : public Foo {};
+struct Bar : public Foo { };
 
 TemporaryRef<Foo>
 NewFoo()
@@ -467,25 +323,25 @@ main(int argc, char** argv)
   // This should blow up
 //    Foo* f = new Foo(); delete f;
 
-  MOZ_ASSERT(0 == Foo::sNumDestroyed);
+  MOZ_ASSERT(0 == Foo::numDestroyed);
   {
     RefPtr<Foo> f = new Foo();
     MOZ_ASSERT(f->refCount() == 1);
   }
-  MOZ_ASSERT(1 == Foo::sNumDestroyed);
+  MOZ_ASSERT(1 == Foo::numDestroyed);
 
   {
     RefPtr<Foo> f1 = NewFoo();
     RefPtr<Foo> f2(NewFoo());
-    MOZ_ASSERT(1 == Foo::sNumDestroyed);
+    MOZ_ASSERT(1 == Foo::numDestroyed);
   }
-  MOZ_ASSERT(3 == Foo::sNumDestroyed);
+  MOZ_ASSERT(3 == Foo::numDestroyed);
 
   {
     RefPtr<Foo> b = NewBar();
-    MOZ_ASSERT(3 == Foo::sNumDestroyed);
+    MOZ_ASSERT(3 == Foo::numDestroyed);
   }
-  MOZ_ASSERT(4 == Foo::sNumDestroyed);
+  MOZ_ASSERT(4 == Foo::numDestroyed);
 
   {
     RefPtr<Foo> f1;
@@ -493,60 +349,58 @@ main(int argc, char** argv)
       f1 = new Foo();
       RefPtr<Foo> f2(f1);
       RefPtr<Foo> f3 = f2;
-      MOZ_ASSERT(4 == Foo::sNumDestroyed);
+      MOZ_ASSERT(4 == Foo::numDestroyed);
     }
-    MOZ_ASSERT(4 == Foo::sNumDestroyed);
+    MOZ_ASSERT(4 == Foo::numDestroyed);
   }
-  MOZ_ASSERT(5 == Foo::sNumDestroyed);
+  MOZ_ASSERT(5 == Foo::numDestroyed);
 
   {
     RefPtr<Foo> f = new Foo();
     f.forget();
-    MOZ_ASSERT(6 == Foo::sNumDestroyed);
+    MOZ_ASSERT(6 == Foo::numDestroyed);
   }
 
   {
     RefPtr<Foo> f = new Foo();
     GetNewFoo(byRef(f));
-    MOZ_ASSERT(7 == Foo::sNumDestroyed);
+    MOZ_ASSERT(7 == Foo::numDestroyed);
   }
-  MOZ_ASSERT(8 == Foo::sNumDestroyed);
+  MOZ_ASSERT(8 == Foo::numDestroyed);
 
   {
     RefPtr<Foo> f = new Foo();
     GetPassedFoo(byRef(f));
-    MOZ_ASSERT(8 == Foo::sNumDestroyed);
+    MOZ_ASSERT(8 == Foo::numDestroyed);
   }
-  MOZ_ASSERT(9 == Foo::sNumDestroyed);
+  MOZ_ASSERT(9 == Foo::numDestroyed);
 
   {
     RefPtr<Foo> f = new Foo();
     GetNewFoo(&f);
-    MOZ_ASSERT(10 == Foo::sNumDestroyed);
+    MOZ_ASSERT(10 == Foo::numDestroyed);
   }
-  MOZ_ASSERT(11 == Foo::sNumDestroyed);
+  MOZ_ASSERT(11 == Foo::numDestroyed);
 
   {
     RefPtr<Foo> f = new Foo();
     GetPassedFoo(&f);
-    MOZ_ASSERT(11 == Foo::sNumDestroyed);
+    MOZ_ASSERT(11 == Foo::numDestroyed);
   }
-  MOZ_ASSERT(12 == Foo::sNumDestroyed);
+  MOZ_ASSERT(12 == Foo::numDestroyed);
 
   {
     RefPtr<Foo> f1 = new Bar();
   }
-  MOZ_ASSERT(13 == Foo::sNumDestroyed);
+  MOZ_ASSERT(13 == Foo::numDestroyed);
 
   {
     RefPtr<Foo> f = GetNullFoo();
-    MOZ_ASSERT(13 == Foo::sNumDestroyed);
+    MOZ_ASSERT(13 == Foo::numDestroyed);
   }
-  MOZ_ASSERT(13 == Foo::sNumDestroyed);
+  MOZ_ASSERT(13 == Foo::numDestroyed);
 
   return 0;
 }
 
 #endif
-
-#endif /* mozilla_RefPtr_h */

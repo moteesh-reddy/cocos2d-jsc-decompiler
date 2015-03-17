@@ -1,3 +1,5 @@
+
+evaluate("mjitChunkLimit(5)");
 expected = 100;
 function slice(a, b) {
   return expected--;

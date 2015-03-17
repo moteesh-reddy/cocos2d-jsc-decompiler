@@ -2,15 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "jsapi-tests/tests.h"
+#include "tests.h"
 
 using namespace JS;
 
-static const JSClass CustomClass = {
+static JSClass CustomClass = {
   "CustomClass",
   JSCLASS_HAS_RESERVED_SLOTS(1),
   JS_PropertyStub,
-  JS_DeletePropertyStub,
+  JS_PropertyStub,
   JS_PropertyStub,
   JS_StrictPropertyStub,
   JS_EnumerateStub,
@@ -21,7 +21,7 @@ static const JSClass CustomClass = {
 static const uint32_t CUSTOM_SLOT = 0;
 
 static bool
-IsCustomClass(JS::Handle<JS::Value> v)
+IsCustomClass(const Value &v)
 {
   return v.isObject() && JS_GetClass(&v.toObject()) == &CustomClass;
 }
@@ -34,7 +34,7 @@ CustomMethodImpl(JSContext *cx, CallArgs args)
   return true;
 }
 
-static bool
+static JSBool
 CustomMethod(JSContext *cx, unsigned argc, Value *vp)
 {
   CallArgs args = CallArgsFromVp(argc, vp);
@@ -44,47 +44,43 @@ CustomMethod(JSContext *cx, unsigned argc, Value *vp)
 BEGIN_TEST(test_CallNonGenericMethodOnProxy)
 {
   // Create the first global object and compartment
-  JS::RootedObject globalA(cx, JS_NewGlobalObject(cx, getGlobalClass(), nullptr, JS::FireOnNewGlobalHook));
+  JS::RootedObject globalA(cx, JS_NewGlobalObject(cx, getGlobalClass(), NULL));
   CHECK(globalA);
 
-  JS::RootedObject customA(cx, JS_NewObject(cx, &CustomClass, JS::NullPtr(), JS::NullPtr()));
+  JS::RootedObject customA(cx, JS_NewObject(cx, &CustomClass, NULL, NULL));
   CHECK(customA);
   JS_SetReservedSlot(customA, CUSTOM_SLOT, Int32Value(17));
 
-  JS::RootedFunction customMethodA(cx, JS_NewFunction(cx, CustomMethod, 0, 0,
-                                                      customA, "customMethodA"));
+  JSFunction *customMethodA = JS_NewFunction(cx, CustomMethod, 0, 0, customA, "customMethodA");
   CHECK(customMethodA);
 
-  JS::RootedValue rval(cx);
-  CHECK(JS_CallFunction(cx, customA, customMethodA, JS::HandleValueArray::empty(),
-                        &rval));
+  jsval rval;
+  CHECK(JS_CallFunction(cx, customA, customMethodA, 0, NULL, &rval));
   CHECK_SAME(rval, Int32Value(17));
 
   // Now create the second global object and compartment...
   {
-    JS::RootedObject globalB(cx, JS_NewGlobalObject(cx, getGlobalClass(), nullptr, JS::FireOnNewGlobalHook));
+    JS::RootedObject globalB(cx, JS_NewGlobalObject(cx, getGlobalClass(), NULL));
     CHECK(globalB);
 
     // ...and enter it.
     JSAutoCompartment enter(cx, globalB);
-    JS::RootedObject customB(cx, JS_NewObject(cx, &CustomClass, JS::NullPtr(), JS::NullPtr()));
+    JS::RootedObject customB(cx, JS_NewObject(cx, &CustomClass, NULL, NULL));
     CHECK(customB);
     JS_SetReservedSlot(customB, CUSTOM_SLOT, Int32Value(42));
 
-    JS::RootedFunction customMethodB(cx, JS_NewFunction(cx, CustomMethod, 0, 0, customB, "customMethodB"));
+    JSFunction *customMethodB = JS_NewFunction(cx, CustomMethod, 0, 0, customB, "customMethodB");
     CHECK(customMethodB);
 
-    JS::RootedValue rval(cx);
-    CHECK(JS_CallFunction(cx, customB, customMethodB, JS::HandleValueArray::empty(),
-                          &rval));
+    jsval rval;
+    CHECK(JS_CallFunction(cx, customB, customMethodB, 0, NULL, &rval));
     CHECK_SAME(rval, Int32Value(42));
 
     JS::RootedObject wrappedCustomA(cx, customA);
-    CHECK(JS_WrapObject(cx, &wrappedCustomA));
+    CHECK(JS_WrapObject(cx, wrappedCustomA.address()));
 
-    JS::RootedValue rval2(cx);
-    CHECK(JS_CallFunction(cx, wrappedCustomA, customMethodB, JS::HandleValueArray::empty(),
-                          &rval2));
+    jsval rval2;
+    CHECK(JS_CallFunction(cx, wrappedCustomA, customMethodB, 0, NULL, &rval2));
     CHECK_SAME(rval, Int32Value(42));
   }
 

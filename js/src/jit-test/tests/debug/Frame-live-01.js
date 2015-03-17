@@ -10,7 +10,7 @@ assertEq(desc.enumerable, false);
 
 var loc;
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 g.debuggeeGlobal = this;
 g.eval("var hits = 0;");
 g.eval("(" + function () {

@@ -1,29 +1,47 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+ * vim: set ts=8 sw=4 et tw=78:
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef vm_NumberObject_inl_h
-#define vm_NumberObject_inl_h
+#ifndef NumberObject_inl_h___
+#define NumberObject_inl_h___
 
-#include "vm/NumberObject.h"
+#include "NumberObject.h"
 
-#include "jsobjinlines.h"
+inline js::NumberObject &
+JSObject::asNumber()
+{
+    JS_ASSERT(isNumber());
+    return *static_cast<js::NumberObject *>(this);
+}
 
 namespace js {
 
 inline NumberObject *
 NumberObject::create(JSContext *cx, double d)
 {
-    JSObject *obj = NewBuiltinClassInstance(cx, &class_);
+    JSObject *obj = NewBuiltinClassInstance(cx, &NumberClass);
     if (!obj)
-        return nullptr;
-    NumberObject &numobj = obj->as<NumberObject>();
+        return NULL;
+    NumberObject &numobj = obj->asNumber();
+    numobj.setPrimitiveValue(d);
+    return &numobj;
+}
+
+inline NumberObject *
+NumberObject::createWithProto(JSContext *cx, double d, JSObject &proto)
+{
+    JSObject *obj = NewObjectWithClassProto(cx, &NumberClass, &proto, NULL,
+                                            gc::GetGCObjectKind(RESERVED_SLOTS));
+    if (!obj)
+        return NULL;
+    NumberObject &numobj = obj->asNumber();
     numobj.setPrimitiveValue(d);
     return &numobj;
 }
 
 } // namespace js
 
-#endif /* vm_NumberObject_inl_h */
+#endif /* NumberObject_inl_h__ */

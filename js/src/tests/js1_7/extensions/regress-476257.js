@@ -30,6 +30,7 @@ function f1() {
   }
   catch(ex)
   {
+    print(ex + '');
   }
 }
 
@@ -48,6 +49,7 @@ function f2() {
   }
   catch(ex)
   {
+    print(ex + '');
   }
 }
 

@@ -2,7 +2,7 @@
 // It should throw WouldRunDebuggee, but that isn't implemented yet.
 
 function test(code) {
-    var g = newGlobal();
+    var g = newGlobal('new-compartment');
     g.eval("function d() { debugger; }");
     var dbg = Debugger(g);
     var hits = 0;

@@ -4,7 +4,7 @@
 // each frame is attached to a particular JSContext and multiple JSContexts may
 // have frames on the stack.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 g.eval('function f(a) { debugger; evaluate("debugger;", {newContext: true}); }');
 
 var dbg = new Debugger(g);

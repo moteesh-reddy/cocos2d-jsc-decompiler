@@ -8,5 +8,6 @@ Object.defineProperty(this, "t2", {
     }
 })
 h2 = {}
+mjitChunkLimit(8)
 h2.a = function() {}
 Object(t2)

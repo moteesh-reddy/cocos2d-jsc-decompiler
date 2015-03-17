@@ -53,8 +53,7 @@ The general format in EBNF is:
     item      ::= flag | attribute
 
     flag      ::= "slow" | "allow-oom" | "valgrind" | "tz-pacific" |
-                  "ion-eager" | "debug" |
-                  "dump-bytecode" |
+                  "mjitalways" | "debug" |
 
 
     attribute ::= name ":" value
@@ -70,7 +69,7 @@ The meaning of the items:
     allow-oom    If the test runs out of memory, it counts as passing.
     valgrind     Run test under valgrind.
     tz-pacific   Always run test with the Pacific time zone (TZ=PST8PDT).
-    ion-eager    Run js with --ion-eager, whether --jitflags says to or not
+    mjitalways   Run js with -a, whether --jitflags says to or not
     debug        Run js with -d, whether --jitflags says to or not
     dump-bytecode Run js with -D, whether --jitflags says to or not
 

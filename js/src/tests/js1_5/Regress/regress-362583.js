@@ -35,6 +35,7 @@ function test()
     }
     catch(ex)
     {
+      print(ex + '');
     }
   }
 

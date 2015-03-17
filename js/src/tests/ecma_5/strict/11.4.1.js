@@ -1,4 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 
 /*
  * Any copyright is dedicated to the Public Domain.
@@ -24,10 +24,6 @@ assertEq(testLenientAndStrict('delete (x);',
 assertEq(testLenientAndStrict('delete x.y;',
                               parsesSuccessfully,
                               parsesSuccessfully),
-         true);
-assertEq(testLenientAndStrict('delete Object();',
-                              returns(true),
-                              returns(true)),
          true);
 
 /* Functions should inherit the surrounding code's strictness. */

@@ -1,33 +1,36 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+ * vim: set ts=8 sw=4 et tw=99:
  */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+
+#include "tests.h"
+
 #include "jscompartment.h"
 #include "jsgc.h"
+#include "jsscope.h"
 
-#include "jsapi-tests/tests.h"
-#include "vm/Shape.h"
+#include "jsscopeinlines.h"
 
 BEGIN_TEST(testRegExpInstanceProperties)
 {
     jsval regexpProtoVal;
     EVAL("RegExp.prototype", &regexpProtoVal);
 
-    JSObject *regexpProto = regexpProtoVal.toObjectOrNull();
+    JSObject *regexpProto = JSVAL_TO_OBJECT(regexpProtoVal);
 
     if (!helper(regexpProto))
         return false;
 
     JS_GC(cx);
 
-    CHECK_EQUAL(regexpProto->compartment()->initialRegExpShape, nullptr);
+    CHECK_EQUAL(regexpProto->compartment()->initialRegExpShape, NULL);
 
     jsval regexp;
     EVAL("/foopy/", &regexp);
-    JSObject *robj = regexp.toObjectOrNull();
+    JSObject *robj = JSVAL_TO_OBJECT(regexp);
 
     CHECK(robj->lastProperty());
     CHECK_EQUAL(robj->compartment()->initialRegExpShape, robj->lastProperty());
@@ -39,7 +42,7 @@ BEGIN_TEST(testRegExpInstanceProperties)
  * Do this all in a nested function evaluation so as (hopefully) not to get
  * screwed up by the conservative stack scanner when GCing.
  */
-MOZ_NEVER_INLINE bool helper(JSObject *regexpProto)
+JS_NEVER_INLINE bool helper(JSObject *regexpProto)
 {
     CHECK(!regexpProto->inDictionaryMode());
 
@@ -53,10 +56,10 @@ MOZ_NEVER_INLINE bool helper(JSObject *regexpProto)
          CHECK(!r.empty());
     }
 
-    JS::RootedValue v(cx, INT_TO_JSVAL(17));
-    CHECK(JS_SetProperty(cx, regexpProto, "foopy", v));
+    jsval v = INT_TO_JSVAL(17);
+    CHECK(JS_SetProperty(cx, regexpProto, "foopy", &v));
     v = INT_TO_JSVAL(42);
-    CHECK(JS_SetProperty(cx, regexpProto, "bunky", v));
+    CHECK(JS_SetProperty(cx, regexpProto, "bunky", &v));
     CHECK(JS_DeleteProperty(cx, regexpProto, "foopy"));
     CHECK(regexpProto->inDictionaryMode());
 

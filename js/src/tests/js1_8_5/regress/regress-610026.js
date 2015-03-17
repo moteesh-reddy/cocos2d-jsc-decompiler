@@ -1,4 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 4 -*- */
+/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 /*
  * Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/licenses/publicdomain/
@@ -12,7 +12,7 @@ var actual;
  * with 2^19 blocks, then test 2^20 - 1 blocks, finally test the limit.
  */
 var s = "{}";
-for (var i = 0; i < 21; i++)
+for (var i = 0; i < 19; i++)
     s += s;
 
 try {
@@ -45,5 +45,21 @@ try {
 }
 
 assertEq(actual, expect);
+
+/* Make 64K blocks in a row, each with two vars, the second one named x. */
+s = "{let y, x;}";
+for (i = 0; i < 16; i++)
+    s += s;
+
+/* Now append code to alias block 0 and botch a JS_NOT_REACHED or get the wrong x. */
+s += "var g; { let x = 42; g = function() { return x; }; x = x; }";
+
+try {
+    eval(s);
+    actual = g();
+} catch (e) {
+    actual = e;
+}
+assertEq(actual, 42);
 
 reportCompare(0, 0, "ok");

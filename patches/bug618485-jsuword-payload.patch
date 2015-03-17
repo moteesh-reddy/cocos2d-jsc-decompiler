@@ -1,0 +1,15 @@
+# HG changeset patch
+# Parent 53149fbcae9d5e52a59dcc1354e3cdab5018d51a
+Bug 618485 - Add missing 64-bit big-endian jsval_layout field (r=luke)
+
+diff --git a/js/src/jsval.h b/js/src/jsval.h
+--- a/js/src/jsval.h
++++ b/js/src/jsval.h
+@@ -304,6 +304,7 @@ typedef union jsval_layout
+             int32_t        i32;
+             uint32_t       u32;
+             JSWhyMagic     why;
++            jsuword        word;
+         } payload;
+     } s;
+     double asDouble;

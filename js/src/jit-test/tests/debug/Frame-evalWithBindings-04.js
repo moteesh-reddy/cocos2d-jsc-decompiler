@@ -1,5 +1,5 @@
 // evalWithBindings works on non-top frames.
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = new Debugger(g);
 var f1;
 var hits = 0;

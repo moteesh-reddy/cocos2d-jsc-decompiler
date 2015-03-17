@@ -7,6 +7,8 @@ function test(m) {
   arr[1] = m;
 }
 
+mjitChunkLimit(10);
+
 arr = new Float64Array(2);
 
 // run function a lot to trigger methodjit compile

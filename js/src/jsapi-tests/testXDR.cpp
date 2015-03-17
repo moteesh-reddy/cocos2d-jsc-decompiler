@@ -1,106 +1,113 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
- * This Source Code Form is subject to the terms of the Mozilla Public
+ * vim: set ts=8 sw=4 et tw=99:
+ */
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "jsfriendapi.h"
+
+#include "tests.h"
 #include "jsscript.h"
 #include "jsstr.h"
 
-#include "jsapi-tests/tests.h"
-
-#include "jsscriptinlines.h"
-
 static JSScript *
 CompileScriptForPrincipalsVersionOrigin(JSContext *cx, JS::HandleObject obj,
-                                        JSPrincipals *originPrincipals,
+                                        JSPrincipals *principals, JSPrincipals *originPrincipals,
                                         const char *bytes, size_t nbytes,
                                         const char *filename, unsigned lineno,
                                         JSVersion version)
 {
     size_t nchars;
-    if (!JS_DecodeBytes(cx, bytes, nbytes, nullptr, &nchars))
-        return nullptr;
+    if (!JS_DecodeBytes(cx, bytes, nbytes, NULL, &nchars))
+        return NULL;
     jschar *chars = static_cast<jschar *>(JS_malloc(cx, nchars * sizeof(jschar)));
     if (!chars)
-        return nullptr;
+        return NULL;
     JS_ALWAYS_TRUE(JS_DecodeBytes(cx, bytes, nbytes, chars, &nchars));
-    JS::CompileOptions options(cx);
-    options.setOriginPrincipals(originPrincipals)
-           .setFileAndLine(filename, lineno)
-           .setVersion(version);
-    JS::RootedScript script(cx);
-    JS::Compile(cx, obj, options, chars, nchars, &script);
+    JSScript *script = JS_CompileUCScriptForPrincipalsVersionOrigin(cx, obj,
+                                                                    principals, originPrincipals,
+                                                                    chars, nchars,
+                                                                    filename, lineno, version);
     free(chars);
     return script;
 }
 
-static JSScript *
-FreezeThaw(JSContext *cx, JS::HandleScript script)
+JSScript *
+FreezeThaw(JSContext *cx, JSScript *script)
 {
     // freeze
     uint32_t nbytes;
     void *memory = JS_EncodeScript(cx, script, &nbytes);
     if (!memory)
-        return nullptr;
+        return NULL;
 
     // thaw
-    JSScript *script2 = JS_DecodeScript(cx, memory, nbytes,
-                                        script->originPrincipals());
+    script = JS_DecodeScript(cx, memory, nbytes, script->principals, script->originPrincipals);
     js_free(memory);
-    return script2;
+    return script;
 }
 
 static JSScript *
 GetScript(JSContext *cx, JS::HandleObject funobj)
 {
-    JS::RootedFunction fun(cx, JS_GetObjectFunction(funobj));
-    return JS_GetFunctionScript(cx, fun);
+    return JS_GetFunctionScript(cx, JS_GetObjectFunction(funobj));
 }
 
-static JSObject *
+JSObject *
 FreezeThaw(JSContext *cx, JS::HandleObject funobj)
 {
     // freeze
     uint32_t nbytes;
     void *memory = JS_EncodeInterpretedFunction(cx, funobj, &nbytes);
     if (!memory)
-        return nullptr;
+        return NULL;
 
     // thaw
     JSScript *script = GetScript(cx, funobj);
     JSObject *funobj2 = JS_DecodeInterpretedFunction(cx, memory, nbytes,
-                                                     script->originPrincipals());
+                                          script->principals, script->originPrincipals);
     js_free(memory);
     return funobj2;
 }
 
-static TestJSPrincipals testPrincipal0(1);
-static TestJSPrincipals testPrincipal1(1);
+static JSPrincipals testPrincipals[] = {
+    { 1 },
+    { 1 },
+};
 
 BEGIN_TEST(testXDR_principals)
 {
     JSScript *script;
-    JSCompartment *compartment = js::GetContextCompartment(cx);
     for (int i = TEST_FIRST; i != TEST_END; ++i) {
-        // Appease the new JSAPI assertions. The stuff being tested here is
-        // going away anyway.
-        JS_SetCompartmentPrincipals(compartment, &testPrincipal0);
-        script = createScriptViaXDR(nullptr, i);
+        script = createScriptViaXDR(NULL, NULL, i);
         CHECK(script);
-        CHECK(JS_GetScriptPrincipals(script) == &testPrincipal0);
-        CHECK(JS_GetScriptOriginPrincipals(script) == &testPrincipal0);
+        CHECK(!JS_GetScriptPrincipals(script));
+        CHECK(!JS_GetScriptOriginPrincipals(script));
 
-        script = createScriptViaXDR(&testPrincipal0, i);
+        script = createScriptViaXDR(NULL, NULL, i);
         CHECK(script);
-        CHECK(JS_GetScriptPrincipals(script) == &testPrincipal0);
-        CHECK(JS_GetScriptOriginPrincipals(script) == &testPrincipal0);
+        CHECK(!JS_GetScriptPrincipals(script));
+        CHECK(!JS_GetScriptOriginPrincipals(script));
 
-        script = createScriptViaXDR(&testPrincipal1, i);
+        script = createScriptViaXDR(&testPrincipals[0], NULL, i);
         CHECK(script);
-        CHECK(JS_GetScriptPrincipals(script) == &testPrincipal0);
-        CHECK(JS_GetScriptOriginPrincipals(script) == &testPrincipal1);
+        CHECK(JS_GetScriptPrincipals(script) == &testPrincipals[0]);
+        CHECK(JS_GetScriptOriginPrincipals(script) == &testPrincipals[0]);
+
+        script = createScriptViaXDR(&testPrincipals[0], &testPrincipals[0], i);
+        CHECK(script);
+        CHECK(JS_GetScriptPrincipals(script) == &testPrincipals[0]);
+        CHECK(JS_GetScriptOriginPrincipals(script) == &testPrincipals[0]);
+
+        script = createScriptViaXDR(&testPrincipals[0], &testPrincipals[1], i);
+        CHECK(script);
+        CHECK(JS_GetScriptPrincipals(script) == &testPrincipals[0]);
+        CHECK(JS_GetScriptOriginPrincipals(script) == &testPrincipals[1]);
+
+        script = createScriptViaXDR(NULL, &testPrincipals[1], i);
+        CHECK(script);
+        CHECK(!JS_GetScriptPrincipals(script));
+        CHECK(JS_GetScriptOriginPrincipals(script) == &testPrincipals[1]);
     }
 
     return true;
@@ -114,41 +121,71 @@ enum TestCase {
     TEST_END
 };
 
-JSScript *createScriptViaXDR(JSPrincipals *orig, int testCase)
+JSScript *createScriptViaXDR(JSPrincipals *prin, JSPrincipals *orig, int testCase)
 {
     const char src[] =
         "function f() { return 1; }\n"
         "f;\n";
 
-    JS::RootedObject global(cx, JS::CurrentGlobalOrNull(cx));
-    JS::RootedScript script(cx, CompileScriptForPrincipalsVersionOrigin(cx, global, orig,
-                                                                        src, strlen(src), "test", 1,
-                                                                        JSVERSION_DEFAULT));
+    JS::RootedObject global(cx, JS_GetGlobalObject(cx));
+    JSScript *script = CompileScriptForPrincipalsVersionOrigin(cx, global, prin, orig,
+                                                               src, strlen(src), "test", 1,
+                                                               JSVERSION_DEFAULT);
     if (!script)
-        return nullptr;
+        return NULL;
 
     if (testCase == TEST_SCRIPT || testCase == TEST_SERIALIZED_FUNCTION) {
         script = FreezeThaw(cx, script);
         if (!script)
-            return nullptr;
+            return NULL;
         if (testCase == TEST_SCRIPT)
             return script;
     }
 
-    JS::RootedValue v(cx);
-    bool ok = JS_ExecuteScript(cx, global, script, &v);
+    JS::Value v;
+    JSBool ok = JS_ExecuteScript(cx, global, script, &v);
     if (!ok || !v.isObject())
-        return nullptr;
+        return NULL;
     JS::RootedObject funobj(cx, &v.toObject());
     if (testCase == TEST_FUNCTION) {
         funobj = FreezeThaw(cx, funobj);
         if (!funobj)
-            return nullptr;
+            return NULL;
     }
     return GetScript(cx, funobj);
 }
 
 END_TEST(testXDR_principals)
+
+BEGIN_TEST(testXDR_atline)
+{
+    JS_ToggleOptions(cx, JSOPTION_ATLINE);
+    CHECK(JS_GetOptions(cx) & JSOPTION_ATLINE);
+
+    const char src[] =
+"//@line 100 \"foo\"\n"
+"function nested() { }\n"
+"//@line 200 \"bar\"\n"
+"nested;\n";
+
+    JSScript *script = JS_CompileScript(cx, global, src, strlen(src), "internal", 1);
+    CHECK(script);
+    CHECK(script = FreezeThaw(cx, script));
+    CHECK(!strcmp("bar", JS_GetScriptFilename(cx, script)));
+
+    JS::Value v;
+    JSBool ok = JS_ExecuteScript(cx, global, script, &v);
+    CHECK(ok);
+    CHECK(v.isObject());
+
+    JS::RootedObject funobj(cx, &v.toObject());
+    script = JS_GetFunctionScript(cx, JS_GetObjectFunction(funobj));
+    CHECK(!strcmp("foo", JS_GetScriptFilename(cx, script)));
+
+    return true;
+}
+
+END_TEST(testXDR_atline)
 
 BEGIN_TEST(testXDR_bug506491)
 {
@@ -161,10 +198,7 @@ BEGIN_TEST(testXDR_bug506491)
         "var f = makeClosure('0;', 'status', 'ok');\n";
 
     // compile
-    JS::CompileOptions options(cx);
-    options.setFileAndLine(__FILE__, __LINE__);
-    JS::RootedScript script(cx);
-    CHECK(JS_CompileScript(cx, global, s, strlen(s), options, &script));
+    JSScript *script = JS_CompileScript(cx, global, s, strlen(s), __FILE__, __LINE__);
     CHECK(script);
 
     script = FreezeThaw(cx, script);
@@ -172,13 +206,13 @@ BEGIN_TEST(testXDR_bug506491)
 
     // execute
     JS::RootedValue v2(cx);
-    CHECK(JS_ExecuteScript(cx, global, script, &v2));
+    CHECK(JS_ExecuteScript(cx, global, script, v2.address()));
 
     // try to break the Block object that is the parent of f
     JS_GC(rt);
 
     // confirm
-    EVAL("f() === 'ok';\n", &v2);
+    EVAL("f() === 'ok';\n", v2.address());
     JS::RootedValue trueval(cx, JSVAL_TRUE);
     CHECK_SAME(v2, trueval);
     return true;
@@ -188,17 +222,14 @@ END_TEST(testXDR_bug506491)
 BEGIN_TEST(testXDR_bug516827)
 {
     // compile an empty script
-    JS::CompileOptions options(cx);
-    options.setFileAndLine(__FILE__, __LINE__);
-    JS::RootedScript script(cx);
-    CHECK(JS_CompileScript(cx, global, "", 0, options, &script));
+    JSScript *script = JS_CompileScript(cx, global, "", 0, __FILE__, __LINE__);
     CHECK(script);
 
     script = FreezeThaw(cx, script);
     CHECK(script);
 
     // execute with null result meaning no result wanted
-    CHECK(JS_ExecuteScript(cx, global, script));
+    CHECK(JS_ExecuteScript(cx, global, script, NULL));
     return true;
 }
 END_TEST(testXDR_bug516827)
@@ -209,19 +240,16 @@ BEGIN_TEST(testXDR_source)
         // This can't possibly fail to compress well, can it?
         "function f(x) { return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x }",
         "short",
-        nullptr
+        NULL
     };
     for (const char **s = samples; *s; s++) {
-        JS::CompileOptions options(cx);
-        options.setFileAndLine(__FILE__, __LINE__);
-        JS::RootedScript script(cx);
-        CHECK(JS_CompileScript(cx, global, *s, strlen(*s), options, &script));
+        JSScript *script = JS_CompileScript(cx, global, *s, strlen(*s), __FILE__, __LINE__);
         CHECK(script);
         script = FreezeThaw(cx, script);
         CHECK(script);
         JSString *out = JS_DecompileScript(cx, script, "testing", 0);
         CHECK(out);
-        bool equal;
+        JSBool equal;
         CHECK(JS_StringEqualsAscii(cx, out, *s, &equal));
         CHECK(equal);
     }
@@ -234,13 +262,10 @@ BEGIN_TEST(testXDR_sourceMap)
     const char *sourceMaps[] = {
         "http://example.com/source-map.json",
         "file:///var/source-map.json",
-        nullptr
+        NULL
     };
-    JS::RootedScript script(cx);
     for (const char **sm = sourceMaps; *sm; sm++) {
-        JS::CompileOptions options(cx);
-        options.setFileAndLine(__FILE__, __LINE__);
-        CHECK(JS_CompileScript(cx, global, "", 0, options, &script));
+        JSScript *script = JS_CompileScript(cx, global, "", 0, __FILE__, __LINE__);
         CHECK(script);
 
         size_t len = strlen(*sm);
@@ -248,13 +273,13 @@ BEGIN_TEST(testXDR_sourceMap)
         CHECK(expected);
 
         // The script source takes responsibility of free'ing |expected|.
-        CHECK(script->scriptSource()->setSourceMapURL(cx, expected));
+        CHECK(script->scriptSource()->setSourceMap(cx, expected, script->filename));
         script = FreezeThaw(cx, script);
         CHECK(script);
         CHECK(script->scriptSource());
-        CHECK(script->scriptSource()->hasSourceMapURL());
+        CHECK(script->scriptSource()->hasSourceMap());
 
-        const jschar *actual = script->scriptSource()->sourceMapURL();
+        const jschar *actual = script->scriptSource()->sourceMap();
         CHECK(actual);
 
         while (*expected) {

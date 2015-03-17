@@ -16,7 +16,7 @@
 
 load(libdir + "asserts.js");
 
-var debuggee = newGlobal();
+var debuggee = newGlobal('new-compartment');
 var dbg = Debugger(debuggee);
 var hits, savedFrame;
 

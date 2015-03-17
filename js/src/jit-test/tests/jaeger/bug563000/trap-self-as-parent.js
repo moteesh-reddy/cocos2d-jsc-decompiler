@@ -5,7 +5,7 @@ x = "notset";
 function myparent(nested) {
   if (nested) {
     /* noop call in myparent */
-    trap(myparent, 62, "success()");
+    trap(myparent, 68, "success()");
   } else {
     myparent(true);
     x = "failure";

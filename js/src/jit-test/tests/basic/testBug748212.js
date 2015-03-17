@@ -1,1 +1,1 @@
-"".match(wrap(evalcx("/x/",newGlobal())));
+"".match(wrap(evalcx("/x/",newGlobal('new-compartment'))));

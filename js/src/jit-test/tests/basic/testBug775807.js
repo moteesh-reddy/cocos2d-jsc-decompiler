@@ -1,4 +1,4 @@
-// |jit-test| dump-bytecode
+// |jit-test| dump-bytecode;error:SyntaxError
 
 (function() {
     const x = ((function() {

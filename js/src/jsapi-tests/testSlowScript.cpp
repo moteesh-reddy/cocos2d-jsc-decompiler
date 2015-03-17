@@ -2,56 +2,55 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "jsapi-tests/tests.h"
+#include "tests.h"
 
-static bool
-InterruptCallback(JSContext *cx)
+JSBool
+OperationCallback(JSContext *cx)
 {
     return false;
 }
 
 static unsigned sRemain;
 
-static bool
-RequestInterruptCallback(JSContext *cx, unsigned argc, jsval *vp)
+JSBool
+TriggerOperationCallback(JSContext *cx, unsigned argc, jsval *vp)
 {
-    JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
     if (!sRemain--)
-        JS_RequestInterruptCallback(JS_GetRuntime(cx));
-    args.rval().setUndefined();
+        JS_TriggerOperationCallback(JS_GetRuntime(cx));
+    *vp = JSVAL_VOID;
     return true;
 }
 
 BEGIN_TEST(testSlowScript)
 {
-    JS_SetInterruptCallback(cx, InterruptCallback);
-    JS_DefineFunction(cx, global, "requestInterruptCallback", RequestInterruptCallback, 0, 0);
+    JS_SetOperationCallback(cx, OperationCallback);
+    JS_DefineFunction(cx, global, "triggerOperationCallback", TriggerOperationCallback, 0, 0);
 
     test("while (true)"
          "  for (i in [0,0,0,0])"
-         "    requestInterruptCallback();");
+         "    triggerOperationCallback();");
 
     test("while (true)"
          "  for (i in [0,0,0,0])"
          "    for (j in [0,0,0,0])"
-         "      requestInterruptCallback();");
+         "      triggerOperationCallback();");
 
     test("while (true)"
          "  for (i in [0,0,0,0])"
          "    for (j in [0,0,0,0])"
          "      for (k in [0,0,0,0])"
-         "        requestInterruptCallback();");
+         "        triggerOperationCallback();");
 
-    test("function f() { while (true) yield requestInterruptCallback() }"
+    test("function f() { while (true) yield triggerOperationCallback() }"
          "for (i in f()) ;");
 
     test("function f() { while (true) yield 1 }"
          "for (i in f())"
-         "  requestInterruptCallback();");
+         "  triggerOperationCallback();");
 
     test("(function() {"
          "  while (true)"
-         "    let (x = 1) { eval('requestInterruptCallback()'); }"
+         "    let (x = 1) { eval('triggerOperationCallback()'); }"
          "})()");
 
     return true;

@@ -1,7 +1,7 @@
 // |jit-test| debug
 // The onExceptionUnwind hook is called multiple times as the stack unwinds.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 g.debuggeeGlobal = this;
 g.dbg = null;
 g.eval("(" + function () {

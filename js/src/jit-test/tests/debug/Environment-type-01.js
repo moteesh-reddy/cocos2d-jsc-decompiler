@@ -1,6 +1,6 @@
 // env.type is 'object' in global environments and with-blocks, and 'declarative' otherwise.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = Debugger(g);
 function test(code, expected) {
     var actual = '';

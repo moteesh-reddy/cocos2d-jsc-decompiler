@@ -1,5 +1,4 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
-/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -10,7 +9,6 @@
 #define mozilla_GuardObjects_h
 
 #include "mozilla/Assertions.h"
-#include "mozilla/NullPtr.h"
 #include "mozilla/Types.h"
 
 #ifdef __cplusplus
@@ -68,49 +66,48 @@ namespace detail {
  * For more details, and examples of using these macros, see
  * https://developer.mozilla.org/en/Using_RAII_classes_in_Mozilla
  */
-class GuardObjectNotifier
+class MOZ_EXPORT_API(GuardObjectNotifier)
 {
-private:
-  bool* mStatementDone;
+  private:
+    bool* statementDone;
 
-public:
-  GuardObjectNotifier() : mStatementDone(nullptr) { }
+  public:
+    GuardObjectNotifier() : statementDone(NULL) { }
 
-  ~GuardObjectNotifier() { *mStatementDone = true; }
+    ~GuardObjectNotifier() {
+      *statementDone = true;
+    }
 
-  void setStatementDone(bool* aStatementIsDone)
-  {
-    mStatementDone = aStatementIsDone;
-  }
+    void setStatementDone(bool* statementIsDone) {
+      statementDone = statementIsDone;
+    }
 };
 
-class GuardObjectNotificationReceiver
+class MOZ_EXPORT_API(GuardObjectNotificationReceiver)
 {
-private:
-  bool mStatementDone;
+  private:
+    bool statementDone;
 
-public:
-  GuardObjectNotificationReceiver() : mStatementDone(false) { }
+  public:
+    GuardObjectNotificationReceiver() : statementDone(false) { }
 
-  ~GuardObjectNotificationReceiver() {
-    /*
-     * Assert that the guard object was not used as a temporary.  (Note that
-     * this assert might also fire if init is not called because the guard
-     * object's implementation is not using the above macros correctly.)
-     */
-    MOZ_ASSERT(mStatementDone);
-  }
+    ~GuardObjectNotificationReceiver() {
+      /*
+       * Assert that the guard object was not used as a temporary.  (Note that
+       * this assert might also fire if init is not called because the guard
+       * object's implementation is not using the above macros correctly.)
+       */
+      MOZ_ASSERT(statementDone);
+    }
 
-  void init(const GuardObjectNotifier& aConstNotifier)
-  {
-    /*
-     * aConstNotifier is passed as a const reference so that we can pass a
-     * temporary, but we really intend it as non-const.
-     */
-    GuardObjectNotifier& notifier =
-      const_cast<GuardObjectNotifier&>(aConstNotifier);
-    notifier.setStatementDone(&mStatementDone);
-  }
+    void init(const GuardObjectNotifier& constNotifier) {
+      /*
+       * constNotifier is passed as a const reference so that we can pass a
+       * temporary, but we really intend it as non-const.
+       */
+      GuardObjectNotifier& notifier = const_cast<GuardObjectNotifier&>(constNotifier);
+      notifier.setStatementDone(&statementDone);
+    }
 };
 
 } /* namespace detail */
@@ -129,8 +126,6 @@ public:
          mozilla::detail::GuardObjectNotifier()
 #  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL \
      , const mozilla::detail::GuardObjectNotifier& _notifier
-#  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL \
-     const mozilla::detail::GuardObjectNotifier& _notifier
 #  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_TO_PARENT \
      , _notifier
 #  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_TO_PARENT \
@@ -142,7 +137,6 @@ public:
 #  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM
 #  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM
 #  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL
-#  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL
 #  define MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_TO_PARENT
 #  define MOZ_GUARD_OBJECT_NOTIFIER_PARAM_TO_PARENT
 #  define MOZ_GUARD_OBJECT_NOTIFIER_INIT do { } while (0)

@@ -1,11 +1,10 @@
 // Debugger.prototype.findScripts can find the innermost script at a given
 // source location.
-var g = newGlobal();
-var dbg = new Debugger();
-var gw = dbg.addDebuggee(g);
+var g = newGlobal('new-compartment');
+var dbg = new Debugger(g);
 
 function script(f) {
-    return gw.makeDebuggeeValue(f).script;
+    return dbg.addDebuggee(f).script;
 }
 
 function arrayIsOnly(array, element) {

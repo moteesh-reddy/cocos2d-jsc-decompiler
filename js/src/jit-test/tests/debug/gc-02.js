@@ -1,7 +1,7 @@
 // Dispatching an event to a debugger must keep enough of it gc-alive to avoid
 // crashing.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var hits;
 
 function addDebug() {

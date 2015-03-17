@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "jsapi-tests/tests.h"
+#include "tests.h"
 
 /*
  * Bug 689101 - jsval is technically a non-POD type because it has a private
@@ -14,9 +14,14 @@
  * C++ because the default alignments of js::Value and jsval_layout differ.
  */
 
+#if defined(__clang__)
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
+#endif
+
 extern "C" {
 
-extern bool
+extern JSBool
 C_ValueToObject(JSContext *cx, jsval v, JSObject **obj);
 
 extern jsval
@@ -27,18 +32,22 @@ C_jsvalAlignmentTest();
 
 }
 
+#if defined(__clang__)
+# pragma clang diagnostic pop
+#endif
+
 BEGIN_TEST(testValueABI_retparam)
 {
-    JS::RootedObject obj(cx, JS::CurrentGlobalOrNull(cx));
+    JS::RootedObject obj(cx, JS_GetGlobalObject(cx));
     jsval v = OBJECT_TO_JSVAL(obj);
-    obj = nullptr;
+    obj = NULL;
     CHECK(C_ValueToObject(cx, v, obj.address()));
-    bool equal;
+    JSBool equal;
     CHECK(JS_StrictlyEqual(cx, v, OBJECT_TO_JSVAL(obj), &equal));
     CHECK(equal);
 
     v = C_GetEmptyStringValue(cx);
-    CHECK(v.isString());
+    CHECK(JSVAL_IS_STRING(v));
 
     return true;
 }

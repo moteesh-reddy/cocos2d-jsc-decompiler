@@ -1,2 +1,2 @@
-var o = newGlobal();
+var o = newGlobal('new-compartment');
 o.makeFinalizeObserver();

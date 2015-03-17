@@ -1,13 +1,17 @@
-/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
- * This Source Code Form is subject to the terms of the Mozilla Public
+/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef vm_Unicode_h
-#define vm_Unicode_h
+#ifndef Unicode_h__
+#define Unicode_h__
+
+#include "mozilla/StandardInteger.h"
 
 #include "jspubtd.h"
+
+#ifdef DEBUG
+#include <stdio.h> /* For EOF */
+#endif
 
 extern const bool js_isidstart[];
 extern const bool js_isident[];
@@ -54,6 +58,11 @@ namespace unicode {
  *   if GetFlag(char) & (FLAG_IDENTIFIER_PART | FLAG_LETTER):
  *      return True
  *
+ * NO_DELTA
+ *   See comment in CharacterInfo
+ *
+ * ENCLOSING_MARK / COMBINING_SPACING_MARK
+ *   Something for E4X....
  */
 
 struct CharFlag {
@@ -61,6 +70,9 @@ struct CharFlag {
         SPACE  = 1 << 0,
         LETTER = 1 << 1,
         IDENTIFIER_PART = 1 << 2,
+        NO_DELTA = 1 << 3,
+        ENCLOSING_MARK = 1 << 4,
+        COMBINING_SPACING_MARK = 1 << 5
     };
 };
 
@@ -69,7 +81,7 @@ const jschar NO_BREAK_SPACE  = 0x00A0;
 
 class CharacterInfo {
     /*
-     * upperCase and lowerCase normally store the delta between two
+     * upperCase and loweCase normally store the delta between two
      * letters. For example the lower case alpha (a) has the char code
      * 97, and the upper case alpha (A) has 65. So for "a" we would
      * store -32 in upperCase (97 + (-32) = 65) and 0 in lowerCase,
@@ -78,6 +90,10 @@ class CharacterInfo {
      * unsigned overflow with identical mathematical behavior.
      * For upper case alpha, we would store 0 in upperCase and 32 in
      * lowerCase (65 + 32 = 97).
+     *
+     * If the delta between the chars wouldn't fit in a T, the flag
+     * FLAG_NO_DELTA is set, and you can just use upperCase and lowerCase
+     * without adding them the base char. See CharInfo.toUpperCase().
      *
      * We use deltas to reuse information for multiple characters. For
      * example the whole lower case latin alphabet fits into one entry,
@@ -100,6 +116,14 @@ class CharacterInfo {
     inline bool isIdentifierPart() const {
         return flags & (CharFlag::IDENTIFIER_PART | CharFlag::LETTER);
     }
+
+    inline bool isEnclosingMark() const {
+        return flags & CharFlag::ENCLOSING_MARK;
+    }
+
+    inline bool isCombiningSpacingMark() const {
+        return flags & CharFlag::COMBINING_SPACING_MARK;
+    }
 };
 
 extern const uint8_t index1[];
@@ -109,9 +133,8 @@ extern const CharacterInfo js_charinfo[];
 inline const CharacterInfo&
 CharInfo(jschar code)
 {
-    const size_t shift = 5;
-    size_t index = index1[code >> shift];
-    index = index2[(index << shift) + (code & ((1 << shift) - 1))];
+    size_t index = index1[code >> 6];
+    index = index2[(index << 6) + (code & 0x3f)];
 
     return js_charinfo[index];
 }
@@ -193,6 +216,13 @@ ToUpperCase(jschar ch)
 {
     const CharacterInfo &info = CharInfo(ch);
 
+    /*
+     * The delta didn't fit into T, so we had to store the
+     * actual char code.
+     */
+    if (info.flags & CharFlag::NO_DELTA)
+        return info.upperCase;
+
     return uint16_t(ch) + info.upperCase;
 }
 
@@ -201,10 +231,58 @@ ToLowerCase(jschar ch)
 {
     const CharacterInfo &info = CharInfo(ch);
 
+    if (info.flags & CharFlag::NO_DELTA)
+        return info.lowerCase;
+
     return uint16_t(ch) + info.lowerCase;
 }
+
+/* XML support functions */
+
+inline bool
+IsXMLSpace(jschar ch)
+{
+    return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
+}
+
+inline bool
+IsXMLNamespaceStart(jschar ch)
+{
+    if (ch == '_')
+        return true;
+
+    return CharInfo(ch).isCombiningSpacingMark() || IsIdentifierStart(ch);
+}
+
+inline bool
+IsXMLNamespacePart(jschar ch)
+{
+    if (ch == '.' || ch == '-' || ch == '_')
+        return true;
+
+    return CharInfo(ch).isEnclosingMark() || IsIdentifierPart(ch);
+}
+
+inline bool
+IsXMLNameStart(jschar ch)
+{
+    if (ch == '_' || ch == ':')
+        return true;
+
+    return CharInfo(ch).isCombiningSpacingMark() || IsIdentifierStart(ch);
+}
+
+inline bool
+IsXMLNamePart(jschar ch)
+{
+    if (ch == '.' || ch == '-' || ch == '_' || ch == ':')
+        return true;
+
+    return CharInfo(ch).isEnclosingMark() || IsIdentifierPart(ch);
+}
+
 
 } /* namespace unicode */
 } /* namespace js */
 
-#endif /* vm_Unicode_h */
+#endif /* Unicode_h__ */

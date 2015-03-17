@@ -1,5 +1,5 @@
 function K(x) {
-  with ({});    // prevent compilation
+  var dontCompile = <a></a>;
   this.x = x; 
 }
 function f() {

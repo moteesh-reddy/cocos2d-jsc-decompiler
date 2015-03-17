@@ -1,6 +1,6 @@
-// env.find() finds nonenumerable properties in with statements.
+// env.find() finds noneumerable properties in with statements.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = Debugger(g);
 var hits = 0;
 g.h = function () {

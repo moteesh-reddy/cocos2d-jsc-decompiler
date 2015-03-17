@@ -1,5 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+ * vim: set ts=8 sw=4 et tw=79:
  *
  * ***** BEGIN LICENSE BLOCK *****
  * Copyright (C) 2008 Apple Inc. All rights reserved.
@@ -23,48 +23,30 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * 
  * ***** END LICENSE BLOCK ***** */
 
-#ifndef assembler_assembler_AssemblerBuffer_h
-#define assembler_assembler_AssemblerBuffer_h
+#ifndef AssemblerBuffer_h
+#define AssemblerBuffer_h
 
 #include "assembler/wtf/Platform.h"
 
 #if ENABLE_ASSEMBLER
 
 #include <string.h>
-#include <limits.h>
 #include "assembler/jit/ExecutableAllocator.h"
 #include "assembler/wtf/Assertions.h"
-
-#include <stdarg.h>
-#include "jsfriendapi.h"
-#include "jsopcode.h"
-#include "jsutil.h"
-
-#include "jit/IonSpewer.h"
-#include "js/RootingAPI.h"
-
-#define PRETTY_PRINT_OFFSET(os) (((os)<0)?"-":""), (((os)<0)?-(os):(os))
-
-#define FIXME_INSN_PRINTING                                 \
-    do {                                                    \
-        spew("FIXME insn printing %s:%d",                   \
-             __FILE__, __LINE__);                           \
-    } while (0)
 
 namespace JSC {
 
     class AssemblerBuffer {
-        static const size_t inlineCapacity = 256;
+        static const int inlineCapacity = 256;
     public:
         AssemblerBuffer()
             : m_buffer(m_inlineBuffer)
             , m_capacity(inlineCapacity)
             , m_size(0)
-            , m_allocSize(0)
             , m_oom(false)
         {
         }
@@ -72,16 +54,16 @@ namespace JSC {
         ~AssemblerBuffer()
         {
             if (m_buffer != m_inlineBuffer)
-                js_free(m_buffer);
+                free(m_buffer);
         }
 
-        void ensureSpace(size_t space)
+        void ensureSpace(int space)
         {
             if (m_size > m_capacity - space)
                 grow();
         }
 
-        bool isAligned(size_t alignment) const
+        bool isAligned(int alignment) const
         {
             return !(m_size & (alignment - 1));
         }
@@ -140,14 +122,9 @@ namespace JSC {
             return m_buffer;
         }
 
-        size_t size() const
+        int size() const
         {
             return m_size;
-        }
-
-        size_t allocSize() const
-        {
-            return m_allocSize;
         }
 
         bool oom() const
@@ -166,9 +143,7 @@ namespace JSC {
                 return 0;
             }
 
-            m_allocSize = js::AlignBytes(m_size, sizeof(void *));
-
-            void* result = allocator->alloc(m_allocSize, poolp, kind);
+            void* result = allocator->alloc(m_size, poolp, kind);
             if (!result) {
                 *poolp = NULL;
                 return 0;
@@ -186,7 +161,7 @@ namespace JSC {
         }
 
     protected:
-        void append(const char* data, size_t size)
+        void append(const char* data, int size)
         {
             if (m_size > m_capacity - size)
                 grow(size);
@@ -213,34 +188,17 @@ namespace JSC {
          * See also the |executableAllocAndCopy| and |buffer| methods.
          */
 
-        void grow(size_t extraCapacity = 0)
+        void grow(int extraCapacity = 0)
         {
-            char* newBuffer;
-
             /*
              * If |extraCapacity| is zero (as it almost always is) this is an
              * allocator-friendly doubling growth strategy.
              */
-            size_t doubleCapacity = m_capacity + m_capacity;
-
-            // Check for overflow.
-            if (doubleCapacity < m_capacity) {
-                m_size = 0;
-                m_oom = true;
-                return;
-            }
-
-            size_t newCapacity = doubleCapacity + extraCapacity;
-
-            // Check for overflow.
-            if (newCapacity < doubleCapacity) {
-                m_size = 0;
-                m_oom = true;
-                return;
-            }
+            int newCapacity = m_capacity + m_capacity + extraCapacity;
+            char* newBuffer;
 
             if (m_buffer == m_inlineBuffer) {
-                newBuffer = static_cast<char*>(js_malloc(newCapacity));
+                newBuffer = static_cast<char*>(malloc(newCapacity));
                 if (!newBuffer) {
                     m_size = 0;
                     m_oom = true;
@@ -248,7 +206,7 @@ namespace JSC {
                 }
                 memcpy(newBuffer, m_buffer, m_size);
             } else {
-                newBuffer = static_cast<char*>(js_realloc(m_buffer, newCapacity));
+                newBuffer = static_cast<char*>(realloc(m_buffer, newCapacity));
                 if (!newBuffer) {
                     m_size = 0;
                     m_oom = true;
@@ -262,83 +220,13 @@ namespace JSC {
 
         char m_inlineBuffer[inlineCapacity];
         char* m_buffer;
-        size_t m_capacity;
-        size_t m_size;
-        size_t m_allocSize;
+        int m_capacity;
+        int m_size;
         bool m_oom;
-    };
-
-    class GenericAssembler
-    {
-        js::Sprinter *printer;
-
-      public:
-
-        bool isOOLPath;
-
-        GenericAssembler()
-          : printer(NULL)
-          , isOOLPath(false)
-        {}
-
-        void setPrinter(js::Sprinter *sp) {
-            printer = sp;
-        }
-
-        void spew(const char *fmt, ...)
-#ifdef __GNUC__
-            __attribute__ ((format (printf, 2, 3)))
-#endif
-        {
-            if (printer
-#ifdef JS_ION
-                || js::jit::IonSpewEnabled(js::jit::IonSpew_Codegen)
-#endif
-                )
-            {
-                // Buffer to hold the formatted string. Note that this may contain
-                // '%' characters, so do not pass it directly to printf functions.
-                char buf[200];
-
-                va_list va;
-                va_start(va, fmt);
-                int i = vsnprintf(buf, sizeof(buf), fmt, va);
-                va_end(va);
-
-                if (i > -1) {
-                    if (printer)
-                        printer->printf("%s\n", buf);
-
-#ifdef JS_ION
-                    js::jit::IonSpew(js::jit::IonSpew_Codegen, "%s", buf);
-#endif
-                }
-            }
-        }
-
-        static void staticSpew(const char *fmt, ...)
-#ifdef __GNUC__
-            __attribute__ ((format (printf, 1, 2)))
-#endif
-        {
-#ifdef JS_ION
-            if (js::jit::IonSpewEnabled(js::jit::IonSpew_Codegen)) {
-                char buf[200];
-
-                va_list va;
-                va_start(va, fmt);
-                int i = vsnprintf(buf, sizeof(buf), fmt, va);
-                va_end(va);
-
-                if (i > -1)
-                    js::jit::IonSpew(js::jit::IonSpew_Codegen, "%s", buf);
-            }
-#endif
-        }
     };
 
 } // namespace JSC
 
 #endif // ENABLE(ASSEMBLER)
 
-#endif /* assembler_assembler_AssemblerBuffer_h */
+#endif // AssemblerBuffer_h

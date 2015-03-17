@@ -1,7 +1,6 @@
 /* -----------------------------------------------------------------------
-   closures.c - Copyright (c) 2007, 2009, 2010  Red Hat, Inc.
-                Copyright (C) 2007, 2009, 2010 Free Software Foundation, Inc
-                Copyright (c) 2011 Plausible Labs Cooperative, Inc.
+   closures.c - Copyright (c) 2007  Red Hat, Inc.
+   Copyright (C) 2007, 2009 Free Software Foundation, Inc
 
    Code to allocate and deallocate memory for closures.
 
@@ -33,8 +32,8 @@
 #include <ffi.h>
 #include <ffi_common.h>
 
-#if !FFI_MMAP_EXEC_WRIT && !FFI_EXEC_TRAMPOLINE_TABLE
-# if __gnu_linux__ && !defined(__ANDROID__)
+#ifndef FFI_MMAP_EXEC_WRIT
+# if __gnu_linux__
 /* This macro indicates it may be forbidden to map anonymous memory
    with both write and execute permission.  Code compiled when this
    option is defined will attempt to map such pages once, but if it
@@ -64,11 +63,7 @@
 
 #if FFI_CLOSURES
 
-# if FFI_EXEC_TRAMPOLINE_TABLE
-
-// Per-target implementation; It's unclear what can reasonable be shared between two OS/architecture implementations.
-
-# elif FFI_MMAP_EXEC_WRIT /* !FFI_EXEC_TRAMPOLINE_TABLE */
+# if FFI_MMAP_EXEC_WRIT
 
 #define USE_LOCKS 1
 #define USE_DL_PREFIX 1
@@ -172,42 +167,7 @@ selinux_enabled_check (void)
 
 #endif /* !FFI_MMAP_EXEC_SELINUX */
 
-/* On PaX enable kernels that have MPROTECT enable we can't use PROT_EXEC. */
-#ifdef FFI_MMAP_EXEC_EMUTRAMP_PAX
-#include <stdlib.h>
-
-static int emutramp_enabled = -1;
-
-static int
-emutramp_enabled_check (void)
-{
-  char *buf = NULL;
-  size_t len = 0;
-  FILE *f;
-  int ret;
-  f = fopen ("/proc/self/status", "r");
-  if (f == NULL)
-    return 0;
-  ret = 0;
-
-  while (getline (&buf, &len, f) != -1)
-    if (!strncmp (buf, "PaX:", 4))
-      {
-        char emutramp;
-        if (sscanf (buf, "%*s %*c%c", &emutramp) == 1)
-          ret = (emutramp == 'E');
-        break;
-      }
-  free (buf);
-  fclose (f);
-  return ret;
-}
-
-#define is_emutramp_enabled() (emutramp_enabled >= 0 ? emutramp_enabled \
-                               : (emutramp_enabled = emutramp_enabled_check ()))
-#endif /* FFI_MMAP_EXEC_EMUTRAMP_PAX */
-
-#elif defined (__CYGWIN__) || defined(__INTERIX)
+#elif defined (__CYGWIN__)
 
 #include <sys/mman.h>
 
@@ -215,10 +175,6 @@ emutramp_enabled_check (void)
 #define is_selinux_enabled() 0
 
 #endif /* !defined(X86_WIN32) && !defined(X86_WIN64) */
-
-#ifndef FFI_MMAP_EXEC_EMUTRAMP_PAX
-#define is_emutramp_enabled() 0
-#endif /* FFI_MMAP_EXEC_EMUTRAMP_PAX */
 
 /* Declare all functions defined in dlmalloc.c as static.  */
 static void *dlmalloc(size_t);
@@ -237,11 +193,11 @@ static int dlmalloc_trim(size_t) MAYBE_UNUSED;
 static size_t dlmalloc_usable_size(void*) MAYBE_UNUSED;
 static void dlmalloc_stats(void) MAYBE_UNUSED;
 
-#if !(defined(X86_WIN32) || defined(X86_WIN64) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX)
+#if !(defined(X86_WIN32) || defined(X86_WIN64) || defined(__OS2__)) || defined (__CYGWIN__)
 /* Use these for mmap and munmap within dlmalloc.c.  */
 static void *dlmmap(void *, size_t, int, int, int, off_t);
 static int dlmunmap(void *, size_t);
-#endif /* !(defined(X86_WIN32) || defined(X86_WIN64) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX) */
+#endif /* !(defined(X86_WIN32) || defined(X86_WIN64) || defined(__OS2__)) || defined (__CYGWIN__) */
 
 #define mmap dlmmap
 #define munmap dlmunmap
@@ -251,7 +207,7 @@ static int dlmunmap(void *, size_t);
 #undef mmap
 #undef munmap
 
-#if !(defined(X86_WIN32) || defined(X86_WIN64) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX)
+#if !(defined(X86_WIN32) || defined(X86_WIN64) || defined(__OS2__)) || defined (__CYGWIN__)
 
 /* A mutex used to synchronize access to *exec* variables in this file.  */
 static pthread_mutex_t open_temp_exec_file_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -280,7 +236,7 @@ static int
 open_temp_exec_file_dir (const char *dir)
 {
   static const char suffix[] = "/ffiXXXXXX";
-  size_t lendir = strlen (dir);
+  int lendir = strlen (dir);
   char *tempname = __builtin_alloca (lendir + sizeof (suffix));
 
   if (!tempname)
@@ -338,7 +294,7 @@ open_temp_exec_file_mnt (const char *mounts)
       struct mntent mnt;
       char buf[MAXPATHLEN * 3];
 
-      if (getmntent_r (last_mntent, &mnt, buf, sizeof (buf)) == NULL)
+      if (getmntent_r (last_mntent, &mnt, buf, sizeof (buf)))
 	return -1;
 
       if (hasmntopt (&mnt, "ro")
@@ -398,7 +354,7 @@ open_temp_exec_file_opts_next (void)
 }
 
 /* Return a file descriptor of a temporary zero-sized file in a
-   writable and executable filesystem.  */
+   writable and exexutable filesystem.  */
 static int
 open_temp_exec_file (void)
 {
@@ -497,12 +453,6 @@ dlmmap (void *start, size_t length, int prot,
   printf ("mapping in %zi\n", length);
 #endif
 
-  if (execfd == -1 && is_emutramp_enabled ())
-    {
-      ptr = mmap (start, length, prot & ~PROT_EXEC, flags, fd, offset);
-      return ptr;
-    }
-
   if (execfd == -1 && !is_selinux_enabled ())
     {
       ptr = mmap (start, length, prot | PROT_EXEC, flags, fd, offset);
@@ -572,7 +522,7 @@ segment_holding_code (mstate m, char* addr)
 }
 #endif
 
-#endif /* !(defined(X86_WIN32) || defined(X86_WIN64) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX) */
+#endif /* !(defined(X86_WIN32) || defined(X86_WIN64) || defined(__OS2__)) || defined (__CYGWIN__) */
 
 /* Allocate a chunk of memory with the given size.  Returns a pointer
    to the writable address, and sets *CODE to the executable

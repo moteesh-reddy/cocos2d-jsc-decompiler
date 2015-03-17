@@ -1,6 +1,6 @@
 // |jit-test| allow-oom
 (function(){
-  (x)=[1,2,3]
+  (x)=<x>></x>
 })()
 try{
   (function(){

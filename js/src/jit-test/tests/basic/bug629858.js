@@ -1,6 +1,5 @@
 // |jit-test| error: strict
 options("strict");
-options("warn"); // Exit with error code on lint failures.
 eval("\n\
 function f(a) {\n\
     if (a > 3)\n\

@@ -1,4 +1,5 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
+// |reftest| pref(javascript.options.xml.content,true)
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -56,6 +57,38 @@ function test()
   s = "no exception";
   try { g.close(); } catch (e) { s = e + ""; };
   expect("TypeError: yield from closing generator " + f.toSource(), s);
+
+
+/*
+ * XML predicates
+ */
+  t = <xml><eins><name>ich</name></eins><eins><name>joki</name></eins></xml>;
+
+/* Predicates, nested predicates and empty lists */
+  expect(<eins><name>joki</name></eins>, t.eins.(name == "joki"));
+  expect(t.eins, t.eins.(t.eins.(true)));
+  expect(t.(false), t.eins.(false).(true));
+
+/* Predicate with yield throws */
+  f = (function() { t.eins.(yield true); });
+  g = f();
+  s = "no exception";
+  try { g.next(); } catch (e) { s = e + ""; }
+  expect("no exception", s);
+
+/* Function with predicate without return returns void */
+  f = (function() { t.eins.(true); });
+  expect(undefined, f());
+
+/* XML filter predicate in finally preserves return value */
+  f = (function() {
+      try {
+        return "hallo";
+      } finally {
+        t.eins.(true);
+      }
+    });
+  expect("hallo", f());
 
 
 /*
@@ -136,7 +169,21 @@ function test()
     });
   expect(["a1", "a2", "a3", "b1", "b2", "b3", "c1", "c2", "c3"] + "",
          ([a + b for (a in 'abc') for (b in '123')]) + "");
+  expect("", ([x for (x in <x/>)]) + "");
 
+/*
+ * Version switching
+ */
+  if (typeof version == 'function')
+  {
+    var v = version(150);
+    f = new Function("return version(arguments[0])");
+    revertVersion();
+    expect(150, f());
+    expect(150, eval("f()"));
+    expect(0, eval("f(0); f()"));
+    revertVersion();
+  }
   print("End of Tests");
 
 /*

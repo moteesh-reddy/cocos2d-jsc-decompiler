@@ -1,13 +1,12 @@
 // findScripts' result includes scripts for nested functions.
-var g = newGlobal();
-var dbg = new Debugger();
-var gw = dbg.addDebuggee(g);
+var g = newGlobal('new-compartment');
+var dbg = new Debugger(g);
 var log;
 
 g.eval('function f() { return function g() { return function h() { return "Squee!"; } } }');
-var fw = gw.makeDebuggeeValue(g.f);
-var gw = gw.makeDebuggeeValue(g.f());
-var hw = gw.makeDebuggeeValue(g.f()());
+var fw = dbg.addDebuggee(g.f);
+var gw = dbg.addDebuggee(g.f());
+var hw = dbg.addDebuggee(g.f()());
 
 assertEq(fw.script != gw.script, true);
 assertEq(fw.script != hw.script, true);

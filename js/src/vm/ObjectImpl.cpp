@@ -1,51 +1,49 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
- * vim: set ts=8 sts=4 et sw=4 tw=99:
+ * vim: set ts=8 sw=4 et tw=78:
+ *
  * This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "vm/ObjectImpl-inl.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/Attributes.h"
 
-#include "gc/Marking.h"
-#include "js/Value.h"
-#include "vm/Debugger.h"
-
+#include "jsscope.h"
 #include "jsobjinlines.h"
-#include "vm/Shape-inl.h"
+
+#include "js/TemplateLib.h"
+
+#include "Debugger.h"
+#include "ObjectImpl.h"
+
+#include "gc/Barrier-inl.h"
+
+#include "ObjectImpl-inl.h"
 
 using namespace js;
 
-using JS::GenericNaN;
-
 PropDesc::PropDesc()
+  : pd_(UndefinedValue()),
+    value_(UndefinedValue()),
+    get_(UndefinedValue()),
+    set_(UndefinedValue()),
+    attrs(0),
+    hasGet_(false),
+    hasSet_(false),
+    hasValue_(false),
+    hasWritable_(false),
+    hasEnumerable_(false),
+    hasConfigurable_(false),
+    isUndefined_(true)
 {
-    setUndefined();
 }
-
-void
-PropDesc::setUndefined()
-{
-    value_ = UndefinedValue();
-    get_ = UndefinedValue();
-    set_ = UndefinedValue();
-    attrs = 0;
-    hasGet_ = false;
-    hasSet_ = false;
-    hasValue_ = false;
-    hasWritable_ = false;
-    hasEnumerable_ = false;
-    hasConfigurable_ = false;
-
-    isUndefined_ = true;
-}
-
 
 bool
 PropDesc::checkGetter(JSContext *cx)
 {
     if (hasGet_) {
-        if (!IsCallable(get_) && !get_.isUndefined()) {
-            JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_GET_SET_FIELD,
+        if (!js_IsCallable(get_) && !get_.isUndefined()) {
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_BAD_GET_SET_FIELD,
                                  js_getter_str);
             return false;
         }
@@ -57,8 +55,8 @@ bool
 PropDesc::checkSetter(JSContext *cx)
 {
     if (hasSet_) {
-        if (!IsCallable(set_) && !set_.isUndefined()) {
-            JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_BAD_GET_SET_FIELD,
+        if (!js_IsCallable(set_) && !set_.isUndefined()) {
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_BAD_GET_SET_FIELD,
                                  js_setter_str);
             return false;
         }
@@ -66,46 +64,89 @@ PropDesc::checkSetter(JSContext *cx)
     return true;
 }
 
-static const ObjectElements emptyElementsHeader(0, 0);
-
-/* Objects with no elements share one empty set of elements. */
-HeapSlot *const js::emptyObjectElements =
-    reinterpret_cast<HeapSlot *>(uintptr_t(&emptyElementsHeader) + sizeof(ObjectElements));
-
-#ifdef DEBUG
-
-bool
-ObjectImpl::canHaveNonEmptyElements()
+static bool
+CheckArgCompartment(JSContext *cx, JSObject *obj, const Value &v,
+                    const char *methodname, const char *propname)
 {
-    JSObject *obj = static_cast<JSObject *>(this);
-    return isNative() && !obj->is<TypedArrayObject>();
-}
-
-#endif // DEBUG
-
-/* static */ bool
-ObjectElements::ConvertElementsToDoubles(JSContext *cx, uintptr_t elementsPtr)
-{
-    /*
-     * This function is infallible, but has a fallible interface so that it can
-     * be called directly from Ion code. Only arrays can have their dense
-     * elements converted to doubles, and arrays never have empty elements.
-     */
-    HeapSlot *elementsHeapPtr = (HeapSlot *) elementsPtr;
-    JS_ASSERT(elementsHeapPtr != emptyObjectElements);
-
-    ObjectElements *header = ObjectElements::fromElements(elementsHeapPtr);
-    JS_ASSERT(!header->shouldConvertDoubleElements());
-
-    Value *vp = (Value *) elementsPtr;
-    for (size_t i = 0; i < header->initializedLength; i++) {
-        if (vp[i].isInt32())
-            vp[i].setDouble(vp[i].toInt32());
+    if (v.isObject() && v.toObject().compartment() != obj->compartment()) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_DEBUG_COMPARTMENT_MISMATCH,
+                             methodname, propname);
+        return false;
     }
-
-    header->setShouldConvertDoubleElements();
     return true;
 }
+
+/*
+ * Convert Debugger.Objects in desc to debuggee values.
+ * Reject non-callable getters and setters.
+ */
+bool
+PropDesc::unwrapDebuggerObjectsInto(JSContext *cx, Debugger *dbg, JSObject *obj,
+                                    PropDesc *unwrapped) const
+{
+    MOZ_ASSERT(!isUndefined());
+
+    *unwrapped = *this;
+
+    if (unwrapped->hasValue()) {
+        if (!dbg->unwrapDebuggeeValue(cx, &unwrapped->value_) ||
+            !CheckArgCompartment(cx, obj, unwrapped->value_, "defineProperty", "value"))
+        {
+            return false;
+        }
+    }
+
+    if (unwrapped->hasGet()) {
+        if (!dbg->unwrapDebuggeeValue(cx, &unwrapped->get_) ||
+            !CheckArgCompartment(cx, obj, unwrapped->get_, "defineProperty", "get"))
+        {
+            return false;
+        }
+    }
+
+    if (unwrapped->hasSet()) {
+        if (!dbg->unwrapDebuggeeValue(cx, &unwrapped->set_) ||
+            !CheckArgCompartment(cx, obj, unwrapped->set_, "defineProperty", "set"))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/*
+ * Rewrap *idp and the fields of *desc for the current compartment.  Also:
+ * defining a property on a proxy requires pd_ to contain a descriptor object,
+ * so reconstitute desc->pd_ if needed.
+ */
+bool
+PropDesc::wrapInto(JSContext *cx, JSObject *obj, const jsid &id, jsid *wrappedId,
+                   PropDesc *desc) const
+{
+    MOZ_ASSERT(!isUndefined());
+
+    JSCompartment *comp = cx->compartment;
+
+    *wrappedId = id;
+    if (!comp->wrapId(cx, wrappedId))
+        return false;
+
+    *desc = *this;
+    if (!comp->wrap(cx, &desc->value_))
+        return false;
+    if (!comp->wrap(cx, &desc->get_))
+        return false;
+    if (!comp->wrap(cx, &desc->set_))
+        return false;
+    return !obj->isProxy() || desc->makeObject(cx);
+}
+
+static ObjectElements emptyElementsHeader(0, 0);
+
+/* Objects with no elements share one empty set of elements. */
+HeapSlot *js::emptyObjectElements =
+    reinterpret_cast<HeapSlot *>(uintptr_t(&emptyElementsHeader) + sizeof(ObjectElements));
 
 #ifdef DEBUG
 void
@@ -124,7 +165,7 @@ js::ObjectImpl::checkShapeConsistency()
     MOZ_ASSERT(isNative());
 
     Shape *shape = lastProperty();
-    Shape *prev = nullptr;
+    Shape *prev = NULL;
 
     if (inDictionaryMode()) {
         MOZ_ASSERT(shape->hasTable());
@@ -136,7 +177,7 @@ js::ObjectImpl::checkShapeConsistency()
         }
 
         for (int n = throttle; --n >= 0 && shape->parent; shape = shape->parent) {
-            MOZ_ASSERT_IF(lastProperty() != shape, !shape->hasTable());
+            MOZ_ASSERT_IF(shape != lastProperty(), !shape->hasTable());
 
             Shape **spp = table.search(shape->propid(), false);
             MOZ_ASSERT(SHAPE_FETCH(spp) == shape);
@@ -146,7 +187,7 @@ js::ObjectImpl::checkShapeConsistency()
         for (int n = throttle; --n >= 0 && shape; shape = shape->parent) {
             MOZ_ASSERT_IF(shape->slot() != SHAPE_INVALID_SLOT, shape->slot() < slotSpan());
             if (!prev) {
-                MOZ_ASSERT(lastProperty() == shape);
+                MOZ_ASSERT(shape == lastProperty());
                 MOZ_ASSERT(shape->listp == &shape_);
             } else {
                 MOZ_ASSERT(shape->listp == &prev->parent);
@@ -158,7 +199,7 @@ js::ObjectImpl::checkShapeConsistency()
             if (shape->hasTable()) {
                 ShapeTable &table = shape->table();
                 MOZ_ASSERT(shape->parent);
-                for (Shape::Range<NoGC> r(shape); !r.empty(); r.popFront()) {
+                for (Shape::Range r(shape); !r.empty(); r.popFront()) {
                     Shape **spp = table.search(r.front().propid(), false);
                     MOZ_ASSERT(SHAPE_FETCH(spp) == &r.front());
                 }
@@ -174,52 +215,30 @@ js::ObjectImpl::checkShapeConsistency()
 #endif
 
 void
-js::ObjectImpl::initializeSlotRange(uint32_t start, uint32_t length)
-{
-    /*
-     * No bounds check, as this is used when the object's shape does not
-     * reflect its allocated slots (updateSlotsForSpan).
-     */
-    HeapSlot *fixedStart, *fixedEnd, *slotsStart, *slotsEnd;
-    getSlotRangeUnchecked(start, length, &fixedStart, &fixedEnd, &slotsStart, &slotsEnd);
-
-    uint32_t offset = start;
-    for (HeapSlot *sp = fixedStart; sp < fixedEnd; sp++)
-        sp->init(this->asObjectPtr(), HeapSlot::Slot, offset++, UndefinedValue());
-    for (HeapSlot *sp = slotsStart; sp < slotsEnd; sp++)
-        sp->init(this->asObjectPtr(), HeapSlot::Slot, offset++, UndefinedValue());
-}
-
-void
 js::ObjectImpl::initSlotRange(uint32_t start, const Value *vector, uint32_t length)
 {
+    JSCompartment *comp = compartment();
     HeapSlot *fixedStart, *fixedEnd, *slotsStart, *slotsEnd;
     getSlotRange(start, length, &fixedStart, &fixedEnd, &slotsStart, &slotsEnd);
     for (HeapSlot *sp = fixedStart; sp < fixedEnd; sp++)
-        sp->init(this->asObjectPtr(), HeapSlot::Slot, start++, *vector++);
+        sp->init(comp, this->asObjectPtr(), start++, *vector++);
     for (HeapSlot *sp = slotsStart; sp < slotsEnd; sp++)
-        sp->init(this->asObjectPtr(), HeapSlot::Slot, start++, *vector++);
+        sp->init(comp, this->asObjectPtr(), start++, *vector++);
 }
 
 void
 js::ObjectImpl::copySlotRange(uint32_t start, const Value *vector, uint32_t length)
 {
-    JS::Zone *zone = this->zone();
+    JSCompartment *comp = compartment();
     HeapSlot *fixedStart, *fixedEnd, *slotsStart, *slotsEnd;
     getSlotRange(start, length, &fixedStart, &fixedEnd, &slotsStart, &slotsEnd);
     for (HeapSlot *sp = fixedStart; sp < fixedEnd; sp++)
-        sp->set(zone, this->asObjectPtr(), HeapSlot::Slot, start++, *vector++);
+        sp->set(comp, this->asObjectPtr(), start++, *vector++);
     for (HeapSlot *sp = slotsStart; sp < slotsEnd; sp++)
-        sp->set(zone, this->asObjectPtr(), HeapSlot::Slot, start++, *vector++);
+        sp->set(comp, this->asObjectPtr(), start++, *vector++);
 }
 
 #ifdef DEBUG
-bool
-js::ObjectImpl::isProxy() const
-{
-    return asObjectPtr()->is<ProxyObject>();
-}
-
 bool
 js::ObjectImpl::slotInRange(uint32_t slot, SentinelAllowed sentinel) const
 {
@@ -230,11 +249,6 @@ js::ObjectImpl::slotInRange(uint32_t slot, SentinelAllowed sentinel) const
 }
 #endif /* DEBUG */
 
-// See bug 844580.
-#if defined(_MSC_VER)
-# pragma optimize("g", off)
-#endif
-
 #if defined(_MSC_VER) && _MSC_VER >= 1500
 /*
  * Work around a compiler bug in MSVC9 and above, where inlining this function
@@ -244,40 +258,18 @@ js::ObjectImpl::slotInRange(uint32_t slot, SentinelAllowed sentinel) const
 MOZ_NEVER_INLINE
 #endif
 Shape *
-js::ObjectImpl::nativeLookup(ExclusiveContext *cx, jsid id)
+js::ObjectImpl::nativeLookup(JSContext *cx, jsid id)
 {
     MOZ_ASSERT(isNative());
     Shape **spp;
     return Shape::search(cx, lastProperty(), id, &spp);
 }
 
-#if defined(_MSC_VER)
-# pragma optimize("", on)
-#endif
-
 Shape *
-js::ObjectImpl::nativeLookupPure(jsid id)
+js::ObjectImpl::nativeLookupNoAllocation(jsid id)
 {
     MOZ_ASSERT(isNative());
-    return Shape::searchNoHashify(lastProperty(), id);
-}
-
-uint32_t
-js::ObjectImpl::dynamicSlotsCount(uint32_t nfixed, uint32_t span, const Class *clasp)
-{
-    if (span <= nfixed)
-        return 0;
-    span -= nfixed;
-
-    // Increase the slots to SLOT_CAPACITY_MIN to decrease the likelihood
-    // the dynamic slots need to get increased again. ArrayObjects ignore
-    // this because slots are uncommon in that case.
-    if (clasp != &ArrayObject::class_ && span <= SLOT_CAPACITY_MIN)
-        return SLOT_CAPACITY_MIN;
-
-    uint32_t slots = mozilla::RoundUpPow2(span);
-    MOZ_ASSERT(slots >= span);
-    return slots;
+    return Shape::searchNoAllocation(lastProperty(), id);
 }
 
 void
@@ -287,21 +279,610 @@ js::ObjectImpl::markChildren(JSTracer *trc)
 
     MarkShape(trc, &shape_, "shape");
 
-    const Class *clasp = type_->clasp();
+    Class *clasp = shape_->getObjectClass();
     JSObject *obj = asObjectPtr();
     if (clasp->trace)
         clasp->trace(trc, obj);
 
-    if (shape_->isNative()) {
+    if (shape_->isNative())
         MarkObjectSlots(trc, obj, 0, obj->slotSpan());
-        gc::MarkArraySlots(trc, obj->getDenseInitializedLength(), obj->getDenseElements(), "objectElements");
-    }
 }
 
-void
-PropDesc::trace(JSTracer *trc)
+bool
+DenseElementsHeader::getOwnElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index,
+                                   unsigned resolveFlags, PropDesc *desc)
 {
-    gc::MarkValueRoot(trc, &value_, "PropDesc value");
-    gc::MarkValueRoot(trc, &get_, "PropDesc get");
-    gc::MarkValueRoot(trc, &set_, "PropDesc set");
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    uint32_t len = initializedLength();
+    if (index >= len) {
+        *desc = PropDesc::undefined();
+        return true;
+    }
+
+    HeapSlot &slot = obj->elements[index];
+    if (slot.isMagic(JS_ARRAY_HOLE)) {
+        *desc = PropDesc::undefined();
+        return true;
+    }
+
+    *desc = PropDesc(slot, PropDesc::Writable, PropDesc::Enumerable, PropDesc::Configurable);
+    return true;
+}
+
+bool
+SparseElementsHeader::getOwnElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index,
+                                    unsigned resolveFlags, PropDesc *desc)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    MOZ_NOT_REACHED("NYI");
+    return false;
+}
+
+template<typename T>
+static Value
+ElementToValue(const T &t)
+{
+    return NumberValue(t);
+}
+
+template<>
+/* static */ Value
+ElementToValue(const uint8_clamped &u)
+{
+    return NumberValue(uint8_t(u));
+}
+
+template<typename T>
+bool
+TypedElementsHeader<T>::getOwnElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index,
+                                      unsigned resolveFlags, PropDesc *desc)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    if (index >= length()) {
+        *desc = PropDesc::undefined();
+        return true;
+    }
+
+    *desc = PropDesc(ElementToValue(getElement(index)), PropDesc::Writable,
+                     PropDesc::Enumerable, PropDesc::Configurable);
+    return false;
+}
+
+bool
+ArrayBufferElementsHeader::getOwnElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index,
+                                         unsigned resolveFlags, PropDesc *desc)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    MOZ_NOT_REACHED("NYI");
+    return false;
+}
+
+bool
+SparseElementsHeader::defineElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index,
+                                    const PropDesc &desc, bool shouldThrow, unsigned resolveFlags,
+                                    bool *succeeded)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    MOZ_NOT_REACHED("NYI");
+    return false;
+}
+
+bool
+DenseElementsHeader::defineElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index,
+                                   const PropDesc &desc, bool shouldThrow, unsigned resolveFlags,
+                                   bool *succeeded)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    MOZ_ASSERT_IF(desc.hasGet() || desc.hasSet(), !desc.hasValue() && !desc.hasWritable());
+    MOZ_ASSERT_IF(desc.hasValue() || desc.hasWritable(), !desc.hasGet() && !desc.hasSet());
+
+    /*
+     * If desc is an accessor descriptor or a data descriptor with atypical
+     * attributes, convert to sparse and retry.
+     */
+    if (desc.hasGet() || desc.hasSet() ||
+        (desc.hasEnumerable() && !desc.enumerable()) ||
+        (desc.hasConfigurable() && !desc.configurable()) ||
+        (desc.hasWritable() && !desc.writable()))
+    {
+        if (!obj->makeElementsSparse(cx))
+            return false;
+        SparseElementsHeader &elts = obj->elementsHeader().asSparseElements();
+        return elts.defineElement(cx, obj, index, desc, shouldThrow, resolveFlags, succeeded);
+    }
+
+    /* Does the element exist?  All behavior depends upon this. */
+    uint32_t initLen = initializedLength();
+    if (index < initLen) {
+        HeapSlot &slot = obj->elements[index];
+        if (!slot.isMagic(JS_ARRAY_HOLE)) {
+            /*
+             * The element exists with attributes { [[Enumerable]]: true,
+             * [[Configurable]]: true, [[Writable]]: true, [[Value]]: slot }.
+             */
+            // XXX jwalden fill this in!
+        }
+    }
+
+    /*
+     * If the element doesn't exist, we can only add it if the object is
+     * extensible.
+     */
+    if (!obj->isExtensible()) {
+        *succeeded = false;
+        if (!shouldThrow)
+            return true;
+        RootedValue val(cx, ObjectValue(*obj));
+        MOZ_ALWAYS_FALSE(js_ReportValueErrorFlags(cx, JSREPORT_ERROR, JSMSG_OBJECT_NOT_EXTENSIBLE,
+                                                  JSDVG_IGNORE_STACK,
+                                                  val, NullPtr(),
+                                                  NULL, NULL));
+        return false;
+    }
+
+    /* Otherwise we ensure space for it exists and that it's initialized. */
+    ObjectImpl::DenseElementsResult res = obj->ensureDenseElementsInitialized(cx, index, 0);
+
+    /* Propagate any error. */
+    if (res == ObjectImpl::Failure)
+        return false;
+
+    /* Otherwise, if the index was too far out of range, go sparse. */
+    if (res == ObjectImpl::ConvertToSparse) {
+        if (!obj->makeElementsSparse(cx))
+            return false;
+        SparseElementsHeader &elts = obj->elementsHeader().asSparseElements();
+        return elts.defineElement(cx, obj, index, desc, shouldThrow, resolveFlags, succeeded);
+    }
+
+    /* But if we were able to ensure the element's existence, we're good. */
+    MOZ_ASSERT(res == ObjectImpl::Succeeded);
+    obj->elements[index].set(obj->asObjectPtr(), index, desc.value());
+    *succeeded = true;
+    return true;
+}
+
+JSObject *
+js::ArrayBufferDelegate(JSContext *cx, Handle<ObjectImpl*> obj)
+{
+    MOZ_ASSERT(obj->hasClass(&ArrayBufferClass));
+    if (obj->getPrivate())
+        return static_cast<JSObject *>(obj->getPrivate());
+    JSObject *delegate = NewObjectWithGivenProto(cx, &ObjectClass, obj->getProto(), NULL);
+    obj->setPrivateGCThing(delegate);
+    return delegate;
+}
+
+template <typename T>
+bool
+TypedElementsHeader<T>::defineElement(JSContext *cx, Handle<ObjectImpl*> obj,
+                                      uint32_t index, const PropDesc &desc, bool shouldThrow,
+                                      unsigned resolveFlags, bool *succeeded)
+{
+    /* XXX jwalden This probably isn't how typed arrays should behave... */
+    *succeeded = false;
+
+    RootedValue val(cx, ObjectValue(*obj));
+    js_ReportValueErrorFlags(cx, JSREPORT_ERROR, JSMSG_OBJECT_NOT_EXTENSIBLE,
+                             JSDVG_IGNORE_STACK,
+                             val, NullPtr(), NULL, NULL);
+    return false;
+}
+
+bool
+ArrayBufferElementsHeader::defineElement(JSContext *cx, Handle<ObjectImpl*> obj,
+                                         uint32_t index, const PropDesc &desc, bool shouldThrow,
+                                         unsigned resolveFlags, bool *succeeded)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    Rooted<JSObject*> delegate(cx, ArrayBufferDelegate(cx, obj));
+    if (!delegate)
+        return false;
+    return DefineElement(cx, delegate, index, desc, shouldThrow, resolveFlags, succeeded);
+}
+
+bool
+js::GetOwnProperty(JSContext *cx, Handle<ObjectImpl*> obj, PropertyId pid_, unsigned resolveFlags,
+                   PropDesc *desc)
+{
+    NEW_OBJECT_REPRESENTATION_ONLY();
+
+    JS_CHECK_RECURSION(cx, return false);
+
+    Rooted<PropertyId> pid(cx, pid_);
+
+    if (static_cast<JSObject *>(obj.get())->isProxy()) {
+        MOZ_NOT_REACHED("NYI: proxy [[GetOwnProperty]]");
+        return false;
+    }
+
+    Shape *shape = obj->nativeLookup(cx, pid);
+    if (!shape) {
+        /* Not found: attempt to resolve it. */
+        Class *clasp = obj->getClass();
+        JSResolveOp resolve = clasp->resolve;
+        if (resolve != JS_ResolveStub) {
+            Rooted<jsid> id(cx, pid.get().asId());
+            Rooted<JSObject*> robj(cx, static_cast<JSObject*>(obj.get()));
+            if (clasp->flags & JSCLASS_NEW_RESOLVE) {
+                Rooted<JSObject*> obj2(cx, NULL);
+                JSNewResolveOp op = reinterpret_cast<JSNewResolveOp>(resolve);
+                if (!op(cx, robj, id, resolveFlags, &obj2))
+                    return false;
+            } else {
+                if (!resolve(cx, robj, id))
+                    return false;
+            }
+        }
+
+        /* Now look it up again. */
+        shape = obj->nativeLookup(cx, pid);
+        if (!shape) {
+            desc->setUndefined();
+            return true;
+        }
+    }
+
+    if (shape->isDataDescriptor()) {
+        *desc = PropDesc(obj->nativeGetSlot(shape->slot()), shape->writability(),
+                         shape->enumerability(), shape->configurability());
+        return true;
+    }
+
+    if (shape->isAccessorDescriptor()) {
+        *desc = PropDesc(shape->getterValue(), shape->setterValue(),
+                         shape->enumerability(), shape->configurability());
+        return true;
+    }
+
+    MOZ_NOT_REACHED("NYI: PropertyOp-based properties");
+    return false;
+}
+
+bool
+js::GetOwnElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index, unsigned resolveFlags,
+                  PropDesc *desc)
+{
+    ElementsHeader &header = obj->elementsHeader();
+    switch (header.kind()) {
+      case DenseElements:
+        return header.asDenseElements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case SparseElements:
+        return header.asSparseElements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case Uint8Elements:
+        return header.asUint8Elements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case Int8Elements:
+        return header.asInt8Elements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case Uint16Elements:
+        return header.asUint16Elements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case Int16Elements:
+        return header.asInt16Elements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case Uint32Elements:
+        return header.asUint32Elements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case Int32Elements:
+        return header.asInt32Elements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case Uint8ClampedElements:
+        return header.asUint8ClampedElements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case Float32Elements:
+        return header.asFloat32Elements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case Float64Elements:
+        return header.asFloat64Elements().getOwnElement(cx, obj, index, resolveFlags, desc);
+      case ArrayBufferElements:
+        return header.asArrayBufferElements().getOwnElement(cx, obj, index, resolveFlags, desc);
+    }
+
+    MOZ_NOT_REACHED("bad elements kind!");
+    return false;
+}
+
+bool
+js::GetElement(JSContext *cx, Handle<ObjectImpl*> obj, Handle<ObjectImpl*> receiver, uint32_t index,
+               unsigned resolveFlags, Value *vp)
+{
+    NEW_OBJECT_REPRESENTATION_ONLY();
+
+    Rooted<ObjectImpl*> current(cx, obj);
+
+    do {
+        MOZ_ASSERT(current);
+
+        if (Downcast(current)->isProxy()) {
+            MOZ_NOT_REACHED("NYI: proxy [[GetP]]");
+            return false;
+        }
+
+        PropDesc desc;
+        if (!GetOwnElement(cx, current, index, resolveFlags, &desc))
+            return false;
+
+        /* No property?  Recur or bottom out. */
+        if (desc.isUndefined()) {
+            current = current->getProto();
+            if (current)
+                continue;
+
+            vp->setUndefined();
+            return true;
+        }
+
+        /* If it's a data property, return the value. */
+        if (desc.isDataDescriptor()) {
+            *vp = desc.value();
+            return true;
+        }
+
+        /* If it's an accessor property, call its [[Get]] with the receiver. */
+        if (desc.isAccessorDescriptor()) {
+            Value get = desc.getterValue();
+            if (get.isUndefined()) {
+                vp->setUndefined();
+                return true;
+            }
+
+            InvokeArgsGuard args;
+            if (!cx->stack.pushInvokeArgs(cx, 0, &args))
+                return false;
+
+            /* Push get, receiver, and no args. */
+            args.setCallee(get);
+            args.setThis(ObjectValue(*current));
+
+            bool ok = Invoke(cx, args);
+            *vp = args.rval();
+            return ok;
+        }
+
+        /* Otherwise it's a PropertyOp-based property.  XXX handle this! */
+        MOZ_NOT_REACHED("NYI: handle PropertyOp'd properties here");
+        return false;
+    } while (false);
+
+    MOZ_NOT_REACHED("buggy control flow");
+    return false;
+}
+
+bool
+js::HasElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index, unsigned resolveFlags,
+               bool *found)
+{
+    NEW_OBJECT_REPRESENTATION_ONLY();
+
+    Rooted<ObjectImpl*> current(cx, obj);
+
+    do {
+        MOZ_ASSERT(current);
+
+        if (Downcast(current)->isProxy()) {
+            MOZ_NOT_REACHED("NYI: proxy [[HasProperty]]");
+            return false;
+        }
+
+        PropDesc prop;
+        if (!GetOwnElement(cx, current, index, resolveFlags, &prop))
+            return false;
+
+        if (!prop.isUndefined()) {
+            *found = true;
+            return true;
+        }
+
+        current = current->getProto();
+        if (current)
+            continue;
+
+        *found = false;
+        return true;
+    } while (false);
+
+    MOZ_NOT_REACHED("buggy control flow");
+    return false;
+}
+
+bool
+js::DefineElement(JSContext *cx, Handle<ObjectImpl*> obj, uint32_t index, const PropDesc &desc,
+                  bool shouldThrow, unsigned resolveFlags, bool *succeeded)
+{
+    NEW_OBJECT_REPRESENTATION_ONLY();
+
+    ElementsHeader &header = obj->elementsHeader();
+
+    switch (header.kind()) {
+      case DenseElements:
+        return header.asDenseElements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                      resolveFlags, succeeded);
+      case SparseElements:
+        return header.asSparseElements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                       resolveFlags, succeeded);
+      case Uint8Elements:
+        return header.asUint8Elements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                      resolveFlags, succeeded);
+      case Int8Elements:
+        return header.asInt8Elements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                     resolveFlags, succeeded);
+      case Uint16Elements:
+        return header.asUint16Elements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                       resolveFlags, succeeded);
+      case Int16Elements:
+        return header.asInt16Elements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                      resolveFlags, succeeded);
+      case Uint32Elements:
+        return header.asUint32Elements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                       resolveFlags, succeeded);
+      case Int32Elements:
+        return header.asInt32Elements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                      resolveFlags, succeeded);
+      case Uint8ClampedElements:
+        return header.asUint8ClampedElements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                             resolveFlags, succeeded);
+      case Float32Elements:
+        return header.asFloat32Elements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                        resolveFlags, succeeded);
+      case Float64Elements:
+        return header.asFloat64Elements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                        resolveFlags, succeeded);
+      case ArrayBufferElements:
+        return header.asArrayBufferElements().defineElement(cx, obj, index, desc, shouldThrow,
+                                                            resolveFlags, succeeded);
+    }
+
+    MOZ_NOT_REACHED("bad elements kind!");
+    return false;
+}
+
+bool
+SparseElementsHeader::setElement(JSContext *cx, Handle<ObjectImpl*> obj,
+                                 Handle<ObjectImpl*> receiver, uint32_t index, const Value &v,
+                                 unsigned resolveFlags, bool *succeeded)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    MOZ_NOT_REACHED("NYI");
+    return false;
+}
+
+bool
+DenseElementsHeader::setElement(JSContext *cx, Handle<ObjectImpl*> obj,
+                                Handle<ObjectImpl*> receiver, uint32_t index, const Value &v,
+                                unsigned resolveFlags, bool *succeeded)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    MOZ_NOT_REACHED("NYI");
+    return false;
+}
+
+template <typename T>
+bool
+TypedElementsHeader<T>::setElement(JSContext *cx, Handle<ObjectImpl*> obj,
+                                   Handle<ObjectImpl*> receiver, uint32_t index, const Value &v,
+                                   unsigned resolveFlags, bool *succeeded)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    uint32_t len = length();
+    if (index >= len) {
+        /*
+         * Silent ignore is better than an exception here, because at some
+         * point we may want to support other properties on these objects.
+         */
+        *succeeded = true;
+        return true;
+    }
+
+    /* Convert the value being set to the element type. */
+    double d;
+    if (v.isNumber()) {
+        d = v.toNumber();
+    } else if (v.isNull()) {
+        d = 0.0;
+    } else if (v.isPrimitive()) {
+        if (v.isString()) {
+            if (!ToNumber(cx, v, &d))
+                return false;
+        } else if (v.isUndefined()) {
+            d = js_NaN;
+        } else {
+            d = double(v.toBoolean());
+        }
+    } else {
+        // non-primitive assignments become NaN or 0 (for float/int arrays)
+        d = js_NaN;
+    }
+
+    assign(index, d);
+    *succeeded = true;
+    return true;
+}
+
+bool
+ArrayBufferElementsHeader::setElement(JSContext *cx, Handle<ObjectImpl*> obj,
+                                      Handle<ObjectImpl*> receiver, uint32_t index, const Value &v,
+                                      unsigned resolveFlags, bool *succeeded)
+{
+    MOZ_ASSERT(this == &obj->elementsHeader());
+
+    JSObject *delegate = ArrayBufferDelegate(cx, obj);
+    if (!delegate)
+        return false;
+    return SetElement(cx, obj, receiver, index, v, resolveFlags, succeeded);
+}
+
+bool
+js::SetElement(JSContext *cx, Handle<ObjectImpl*> obj, Handle<ObjectImpl*> receiver,
+               uint32_t index, const Value &v, unsigned resolveFlags, bool *succeeded)
+{
+    NEW_OBJECT_REPRESENTATION_ONLY();
+
+    Rooted<ObjectImpl*> current(cx, obj);
+
+    do {
+        MOZ_ASSERT(current);
+
+        if (Downcast(current)->isProxy()) {
+            MOZ_NOT_REACHED("NYI: proxy [[SetP]]");
+            return false;
+        }
+
+        PropDesc ownDesc;
+        if (!GetOwnElement(cx, current, index, resolveFlags, &ownDesc))
+            return false;
+
+        if (!ownDesc.isUndefined()) {
+            if (ownDesc.isDataDescriptor()) {
+                if (!ownDesc.writable()) {
+                    *succeeded = false;
+                    return true;
+                }
+
+                if (receiver == current) {
+                    PropDesc updateDesc = PropDesc::valueOnly(v);
+                    return DefineElement(cx, receiver, index, updateDesc, false, resolveFlags,
+                                         succeeded);
+                }
+
+                PropDesc newDesc;
+                return DefineElement(cx, receiver, index, newDesc, false, resolveFlags, succeeded);
+            }
+
+            if (ownDesc.isAccessorDescriptor()) {
+                Value setter = ownDesc.setterValue();
+                if (setter.isUndefined()) {
+                    *succeeded = false;
+                    return true;
+                }
+
+                InvokeArgsGuard args;
+                if (!cx->stack.pushInvokeArgs(cx, 1, &args))
+                    return false;
+
+                /* Push set, receiver, and v as the sole argument. */
+                args.setCallee(setter);
+                args.setThis(ObjectValue(*current));
+                args[0] = v;
+
+                *succeeded = true;
+                return Invoke(cx, args);
+            }
+
+            MOZ_NOT_REACHED("NYI: setting PropertyOp-based property");
+            return false;
+        }
+
+        current = current->getProto();
+        if (current)
+            continue;
+
+        PropDesc newDesc(v, PropDesc::Writable, PropDesc::Enumerable, PropDesc::Configurable);
+        return DefineElement(cx, receiver, index, newDesc, false, resolveFlags, succeeded);
+    } while (false);
+
+    MOZ_NOT_REACHED("buggy control flow");
+    return false;
 }

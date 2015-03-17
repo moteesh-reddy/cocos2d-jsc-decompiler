@@ -1,6 +1,6 @@
 /* Make sure we don't collect the atoms compartment unless every compartment is marked. */
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 g.eval("var x = 'some-atom';");
 
 schedulegc(this);

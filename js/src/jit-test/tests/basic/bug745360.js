@@ -1,1 +1,1 @@
-newGlobal().eval("eval.arguments")
+newGlobal('new-compartment').eval("eval.arguments")

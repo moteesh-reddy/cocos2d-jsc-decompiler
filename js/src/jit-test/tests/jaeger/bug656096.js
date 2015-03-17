@@ -20,7 +20,7 @@ function G(a, b, c, d, e, f) {
     if (c) g = []
     else c = h.concat([], [])
     h.concat(g, d)
-    h.clamp(f, [1,2,3])
+    h.clamp(f, <x></x> )
 }
 function decrypt(a, b, c, d, e) {
     G(a, 1, c, d, e, b)

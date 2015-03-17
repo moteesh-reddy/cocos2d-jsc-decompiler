@@ -1,6 +1,6 @@
 // Script.prototype.url can be a string or null.
 
-var g = newGlobal();
+var g = newGlobal('new-compartment');
 var dbg = new Debugger;
 var gw = dbg.addDebuggee(g);
 for (var fileName of ['file:///var/foo.js', null]) {
