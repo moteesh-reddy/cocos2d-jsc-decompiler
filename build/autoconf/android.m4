@@ -48,6 +48,9 @@ i?86-*android*)
 mipsel-*android*)
     android_tool_prefix="mipsel-linux-android"
     ;;
+aarch64-linux*-android*)
+    android_tool_prefix="aarch64-linux-android"
+    ;;
 *)
     android_tool_prefix="$target_os"
     ;;
@@ -74,6 +77,9 @@ case "$target" in
                 ;;
             mipsel)
                 target_name=mipsel-linux-android-$version
+                ;;
+            aarch64)
+                target_name=aarch64-linux-android-$version
                 ;;
             *)
                 AC_MSG_ERROR([target cpu is not supported])
@@ -122,6 +128,12 @@ case "$target" in
         ;;
     mipsel)
         target_name=mips
+        ;;
+    aarch64)
+        target_name=arm64
+        ;;
+    arm64)
+        target_name=arm64
         ;;
     esac
 
@@ -210,6 +222,9 @@ if test "$OS_TARGET" = "Android" -a -z "$gonkdir"; then
         ;;
     arm-*)
         ANDROID_CPU_ARCH=armeabi
+        ;;
+    aarch64*)
+        ANDROID_CPU_ARCH=arm64-v8a
         ;;
     x86-*)
         ANDROID_CPU_ARCH=x86
