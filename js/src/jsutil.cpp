@@ -75,7 +75,7 @@ AllTheNonBasicVanillaNewAllocations()
         intptr_t(memalign(16, 16)) +
         //intptr_t(q) +
         //intptr_t(aligned_alloc(16, 16)) +
-        intptr_t(valloc(4096)) +
+//        intptr_t(valloc(4096)) +                  ; does not compile on Android arm64 ndk12b
         intptr_t(strdup("dummy"));
 
     printf("%u\n", uint32_t(p));  // make sure |p| is not optimized away
