@@ -456,13 +456,14 @@ Statistics::Statistics(JSRuntime *rt)
         return;
     }
 
-    if (strcmp(env, "stdout") == 0) {
-        fullFormat = false;
-        fp = stdout;
-    } else if (strcmp(env, "stderr") == 0) {
-        fullFormat = false;
-        fp = stderr;
-    } else {
+    // if (strcmp(env, "stdout") == 0) {
+    //     fullFormat = false;
+    //     fp = stdout;
+    // } else if (strcmp(env, "stderr") == 0) {
+    //     fullFormat = false;
+    //     fp = stderr;
+    // } else 
+    {
         fullFormat = true;
 
         fp = fopen(env, "a");
@@ -483,7 +484,7 @@ Statistics::~Statistics()
             }
         }
 
-        if (fp != stdout && fp != stderr)
+        if (fp != NULL)
             fclose(fp);
     }
 }

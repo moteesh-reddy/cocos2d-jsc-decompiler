@@ -79,6 +79,10 @@
 # include <libgen.h>
 #endif
 
+#ifdef EDITLINE
+#undef EDITLINE
+#endif
+
 using namespace js;
 using namespace js::cli;
 
@@ -554,7 +558,7 @@ class AutoCloseInputFile
   public:
     explicit AutoCloseInputFile(FILE *f) : f_(f) {}
     ~AutoCloseInputFile() {
-        if (f_ && f_ != stdin)
+        if (f_)
             fclose(f_);
     }
 };
@@ -566,7 +570,7 @@ Process(JSContext *cx, JSObject *obj_, const char *filename, bool forceTTY)
 
     FILE *file;
     if (forceTTY || !filename || strcmp(filename, "-") == 0) {
-        file = stdin;
+        file = NULL;//stdin;
     } else {
         file = fopen(filename, "r");
         if (!file) {
@@ -1494,7 +1498,7 @@ ReadLine(JSContext *cx, unsigned argc, jsval *vp)
     CallArgs args = CallArgsFromVp(argc, vp);
 
 #define BUFSIZE 256
-    FILE *from = stdin;
+    FILE *from = NULL;//stdin;
     size_t buflength = 0;
     size_t bufsize = BUFSIZE;
     char *buf = (char *) JS_malloc(cx, bufsize);
@@ -1636,7 +1640,7 @@ Quit(JSContext *cx, unsigned argc, jsval *vp)
 #ifdef JS_MORE_DETERMINISTIC
     // Print a message to stderr in more-deterministic builds to help jsfunfuzz
     // find uncatchable-exception bugs.
-    fprintf(stderr, "quit called\n");
+    // fprintf(stderr, "quit called\n");
 #endif
 
     CallArgs args = CallArgsFromVp(argc, vp);
@@ -2305,8 +2309,9 @@ DisassFile(JSContext *cx, unsigned argc, jsval *vp)
     if (!sprinter.init())
         return false;
     bool ok = DisassembleScript(cx, script, NullPtr(), p.lines, p.recursive, &sprinter);
-    if (ok)
-        fprintf(stdout, "%s\n", sprinter.string());
+    if (ok) {
+        // fprintf(stdout, "%s\n", sprinter.string());
+    }
     if (!ok)
         return false;
 
@@ -2460,7 +2465,7 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
     }
 
 
-    FILE *dumpFile = stdout;
+    FILE *dumpFile = NULL;//stdout;
     if (fileName.length()) {
         dumpFile = fopen(fileName.ptr(), "w");
         if (!dumpFile) {
@@ -2477,7 +2482,7 @@ DumpHeap(JSContext *cx, unsigned argc, jsval *vp)
                           maxDepth,
                           thingToIgnore.isUndefined() ? nullptr : thingToIgnore.toGCThing());
 
-    if (dumpFile != stdout)
+    if (dumpFile != NULL)
         fclose(dumpFile);
 
     if (!ok)
@@ -3255,9 +3260,9 @@ ScheduleWatchdog(JSRuntime *rt, double t)
     /* FIXME: use setitimer when available for sub-second resolution. */
     if (t <= 0) {
         alarm(0);
-        signal(SIGALRM, nullptr);
+        // signal(SIGALRM, nullptr);
     } else {
-        signal(SIGALRM, AlarmHandler); /* set the Alarm signal capture */
+        // signal(SIGALRM, AlarmHandler); /* set the Alarm signal capture */
         alarm(ceil(t));
     }
 #endif
@@ -3280,7 +3285,7 @@ CancelExecution(JSRuntime *rt)
         ssize_t dummy = write(2, msg, sizeof(msg) - 1);
         (void)dummy;
 #else
-        fputs(msg, stderr);
+        // fputs(msg, stderr);
 #endif
     }
 }
@@ -3886,16 +3891,16 @@ RedirectOutput(JSContext *cx, unsigned argc, jsval *vp)
         RootedString stdoutPath(cx, args[0].toString());
         if (!stdoutPath)
             return false;
-        if (!redirect(cx, stdout, stdoutPath))
-            return false;
+        // if (!redirect(cx, stdout, stdoutPath))
+        //     return false;
     }
 
     if (args.length() > 1 && args[1].isString()) {
         RootedString stderrPath(cx, args[1].toString());
         if (!stderrPath)
             return false;
-        if (!redirect(cx, stderr, stderrPath))
-            return false;
+        // if (!redirect(cx, stderr, stderrPath))
+        //     return false;
     }
 
     args.rval().setUndefined();
@@ -4416,7 +4421,7 @@ SetCachingEnabled(JSContext *cx, unsigned argc, Value *vp)
 static void
 PrintProfilerEvents_Callback(const char *msg)
 {
-    fprintf(stderr, "PROFILER EVENT: %s\n", msg);
+    // fprintf(stderr, "PROFILER EVENT: %s\n", msg);
 }
 
 static bool
@@ -5818,7 +5823,7 @@ BindScriptArgs(JSContext *cx, JSObject *obj_, OptionParser *op)
 static bool
 OptionFailure(const char *option, const char *str)
 {
-    fprintf(stderr, "Unrecognized option for %s: %s\n", option, str);
+    // fprintf(stderr, "Unrecognized option for %s: %s\n", option, str);
     return false;
 }
 #endif /* JS_ION */
@@ -6016,7 +6021,7 @@ SetRuntimeOptions(JSRuntime *rt, const OptionParser &op)
 #endif
 
     if (op.getStringOption("ion-parallel-compile")) {
-        fprintf(stderr, "--ion-parallel-compile is deprecated. Please use --ion-offthread-compile instead.\n");
+        // fprintf(stderr, "--ion-parallel-compile is deprecated. Please use --ion-offthread-compile instead.\n");
         return false;
     }
 
@@ -6151,8 +6156,8 @@ main(int argc, char **argv, char **envp)
     setlocale(LC_ALL, "");
 #endif
 
-    MaybeOverrideOutFileFromEnv("JS_STDERR", stderr, &gErrFile);
-    MaybeOverrideOutFileFromEnv("JS_STDOUT", stdout, &gOutFile);
+    // MaybeOverrideOutFileFromEnv("JS_STDERR", stderr, &gErrFile);
+    // MaybeOverrideOutFileFromEnv("JS_STDOUT", stdout, &gOutFile);
 
     OptionParser op("Usage: {progname} [options] [[script] scriptArgs*]");
 

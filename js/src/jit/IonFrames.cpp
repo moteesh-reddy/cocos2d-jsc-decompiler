@@ -2066,7 +2066,7 @@ JitFrameIterator::numActualArgs() const
 void
 SnapshotIterator::warnUnreadableAllocation()
 {
-    fprintf(stderr, "Warning! Tried to access unreadable value allocation (possible f.arguments).\n");
+    // fprintf(stderr, "Warning! Tried to access unreadable value allocation (possible f.arguments).\n");
 }
 
 struct DumpOp {
@@ -2074,11 +2074,11 @@ struct DumpOp {
 
     unsigned int i_;
     void operator()(const Value& v) {
-        fprintf(stderr, "  actual (arg %d): ", i_);
+        // fprintf(stderr, "  actual (arg %d): ", i_);
 #ifdef DEBUG
         js_DumpValue(v);
 #else
-        fprintf(stderr, "?\n");
+        // fprintf(stderr, "?\n");
 #endif
         i_++;
     }
@@ -2089,144 +2089,144 @@ JitFrameIterator::dumpBaseline() const
 {
     JS_ASSERT(isBaselineJS());
 
-    fprintf(stderr, " JS Baseline frame\n");
-    if (isFunctionFrame()) {
-        fprintf(stderr, "  callee fun: ");
-#ifdef DEBUG
-        js_DumpObject(callee());
-#else
-        fprintf(stderr, "?\n");
-#endif
-    } else {
-        fprintf(stderr, "  global frame, no callee\n");
-    }
+//     fprintf(stderr, " JS Baseline frame\n");
+//     if (isFunctionFrame()) {
+//         fprintf(stderr, "  callee fun: ");
+// #ifdef DEBUG
+//         js_DumpObject(callee());
+// #else
+//         fprintf(stderr, "?\n");
+// #endif
+//     } else {
+//         fprintf(stderr, "  global frame, no callee\n");
+//     }
 
-    fprintf(stderr, "  file %s line %u\n",
-            script()->filename(), (unsigned) script()->lineno());
+//     fprintf(stderr, "  file %s line %u\n",
+//             script()->filename(), (unsigned) script()->lineno());
 
-    JSContext *cx = GetJSContextFromJitCode();
-    RootedScript script(cx);
-    jsbytecode *pc;
-    baselineScriptAndPc(script.address(), &pc);
+//     JSContext *cx = GetJSContextFromJitCode();
+//     RootedScript script(cx);
+//     jsbytecode *pc;
+//     baselineScriptAndPc(script.address(), &pc);
 
-    fprintf(stderr, "  script = %p, pc = %p (offset %u)\n", (void *)script, pc, uint32_t(script->pcToOffset(pc)));
-    fprintf(stderr, "  current op: %s\n", js_CodeName[*pc]);
+//     fprintf(stderr, "  script = %p, pc = %p (offset %u)\n", (void *)script, pc, uint32_t(script->pcToOffset(pc)));
+//     fprintf(stderr, "  current op: %s\n", js_CodeName[*pc]);
 
-    fprintf(stderr, "  actual args: %d\n", numActualArgs());
+//     fprintf(stderr, "  actual args: %d\n", numActualArgs());
 
-    BaselineFrame *frame = baselineFrame();
+//     BaselineFrame *frame = baselineFrame();
 
-    for (unsigned i = 0; i < frame->numValueSlots(); i++) {
-        fprintf(stderr, "  slot %u: ", i);
-#ifdef DEBUG
-        Value *v = frame->valueSlot(i);
-        js_DumpValue(*v);
-#else
-        fprintf(stderr, "?\n");
-#endif
-    }
+//     for (unsigned i = 0; i < frame->numValueSlots(); i++) {
+//         fprintf(stderr, "  slot %u: ", i);
+// #ifdef DEBUG
+//         Value *v = frame->valueSlot(i);
+//         js_DumpValue(*v);
+// #else
+//         fprintf(stderr, "?\n");
+// #endif
+//     }
 }
 
 void
 InlineFrameIterator::dump() const
 {
-    if (more())
-        fprintf(stderr, " JS frame (inlined)\n");
-    else
-        fprintf(stderr, " JS frame\n");
+//     if (more())
+//         fprintf(stderr, " JS frame (inlined)\n");
+//     else
+//         fprintf(stderr, " JS frame\n");
 
-    bool isFunction = false;
-    if (isFunctionFrame()) {
-        isFunction = true;
-        fprintf(stderr, "  callee fun: ");
-#ifdef DEBUG
-        js_DumpObject(callee());
-#else
-        fprintf(stderr, "?\n");
-#endif
-    } else {
-        fprintf(stderr, "  global frame, no callee\n");
-    }
+//     bool isFunction = false;
+//     if (isFunctionFrame()) {
+//         isFunction = true;
+//         fprintf(stderr, "  callee fun: ");
+// #ifdef DEBUG
+//         js_DumpObject(callee());
+// #else
+//         fprintf(stderr, "?\n");
+// #endif
+//     } else {
+//         fprintf(stderr, "  global frame, no callee\n");
+//     }
 
-    fprintf(stderr, "  file %s line %u\n",
-            script()->filename(), (unsigned) script()->lineno());
+//     fprintf(stderr, "  file %s line %u\n",
+//             script()->filename(), (unsigned) script()->lineno());
 
-    fprintf(stderr, "  script = %p, pc = %p\n", (void*) script(), pc());
-    fprintf(stderr, "  current op: %s\n", js_CodeName[*pc()]);
+//     fprintf(stderr, "  script = %p, pc = %p\n", (void*) script(), pc());
+//     fprintf(stderr, "  current op: %s\n", js_CodeName[*pc()]);
 
-    if (!more()) {
-        numActualArgs();
-    }
+//     if (!more()) {
+//         numActualArgs();
+//     }
 
-    SnapshotIterator si = snapshotIterator();
-    fprintf(stderr, "  slots: %u\n", si.numAllocations() - 1);
-    for (unsigned i = 0; i < si.numAllocations() - 1; i++) {
-        if (isFunction) {
-            if (i == 0)
-                fprintf(stderr, "  scope chain: ");
-            else if (i == 1)
-                fprintf(stderr, "  this: ");
-            else if (i - 2 < callee()->nargs())
-                fprintf(stderr, "  formal (arg %d): ", i - 2);
-            else {
-                if (i - 2 == callee()->nargs() && numActualArgs() > callee()->nargs()) {
-                    DumpOp d(callee()->nargs());
-                    unaliasedForEachActual(GetJSContextFromJitCode(), d, ReadFrame_Overflown);
-                }
+//     SnapshotIterator si = snapshotIterator();
+//     fprintf(stderr, "  slots: %u\n", si.numAllocations() - 1);
+//     for (unsigned i = 0; i < si.numAllocations() - 1; i++) {
+//         if (isFunction) {
+//             if (i == 0)
+//                 fprintf(stderr, "  scope chain: ");
+//             else if (i == 1)
+//                 fprintf(stderr, "  this: ");
+//             else if (i - 2 < callee()->nargs())
+//                 fprintf(stderr, "  formal (arg %d): ", i - 2);
+//             else {
+//                 if (i - 2 == callee()->nargs() && numActualArgs() > callee()->nargs()) {
+//                     DumpOp d(callee()->nargs());
+//                     unaliasedForEachActual(GetJSContextFromJitCode(), d, ReadFrame_Overflown);
+//                 }
 
-                fprintf(stderr, "  slot %d: ", int(i - 2 - callee()->nargs()));
-            }
-        } else
-            fprintf(stderr, "  slot %u: ", i);
-#ifdef DEBUG
-        js_DumpValue(si.maybeRead());
-#else
-        fprintf(stderr, "?\n");
-#endif
-    }
+//                 fprintf(stderr, "  slot %d: ", int(i - 2 - callee()->nargs()));
+//             }
+//         } else
+//             fprintf(stderr, "  slot %u: ", i);
+// #ifdef DEBUG
+//         js_DumpValue(si.maybeRead());
+// #else
+//         fprintf(stderr, "?\n");
+// #endif
+//     }
 
-    fputc('\n', stderr);
+//     fputc('\n', stderr);
 }
 
 void
 JitFrameIterator::dump() const
 {
-    switch (type_) {
-      case JitFrame_Entry:
-        fprintf(stderr, " Entry frame\n");
-        fprintf(stderr, "  Frame size: %u\n", unsigned(current()->prevFrameLocalSize()));
-        break;
-      case JitFrame_BaselineJS:
-        dumpBaseline();
-        break;
-      case JitFrame_BaselineStub:
-      case JitFrame_Unwound_BaselineStub:
-        fprintf(stderr, " Baseline stub frame\n");
-        fprintf(stderr, "  Frame size: %u\n", unsigned(current()->prevFrameLocalSize()));
-        break;
-      case JitFrame_IonJS:
-      {
-        InlineFrameIterator frames(GetJSContextFromJitCode(), this);
-        for (;;) {
-            frames.dump();
-            if (!frames.more())
-                break;
-            ++frames;
-        }
-        break;
-      }
-      case JitFrame_Rectifier:
-      case JitFrame_Unwound_Rectifier:
-        fprintf(stderr, " Rectifier frame\n");
-        fprintf(stderr, "  Frame size: %u\n", unsigned(current()->prevFrameLocalSize()));
-        break;
-      case JitFrame_Unwound_IonJS:
-        fprintf(stderr, "Warning! Unwound JS frames are not observable.\n");
-        break;
-      case JitFrame_Exit:
-        break;
-    };
-    fputc('\n', stderr);
+    // switch (type_) {
+    //   case JitFrame_Entry:
+    //     fprintf(stderr, " Entry frame\n");
+    //     fprintf(stderr, "  Frame size: %u\n", unsigned(current()->prevFrameLocalSize()));
+    //     break;
+    //   case JitFrame_BaselineJS:
+    //     dumpBaseline();
+    //     break;
+    //   case JitFrame_BaselineStub:
+    //   case JitFrame_Unwound_BaselineStub:
+    //     fprintf(stderr, " Baseline stub frame\n");
+    //     fprintf(stderr, "  Frame size: %u\n", unsigned(current()->prevFrameLocalSize()));
+    //     break;
+    //   case JitFrame_IonJS:
+    //   {
+    //     InlineFrameIterator frames(GetJSContextFromJitCode(), this);
+    //     for (;;) {
+    //         frames.dump();
+    //         if (!frames.more())
+    //             break;
+    //         ++frames;
+    //     }
+    //     break;
+    //   }
+    //   case JitFrame_Rectifier:
+    //   case JitFrame_Unwound_Rectifier:
+    //     fprintf(stderr, " Rectifier frame\n");
+    //     fprintf(stderr, "  Frame size: %u\n", unsigned(current()->prevFrameLocalSize()));
+    //     break;
+    //   case JitFrame_Unwound_IonJS:
+    //     fprintf(stderr, "Warning! Unwound JS frames are not observable.\n");
+    //     break;
+    //   case JitFrame_Exit:
+    //     break;
+    // };
+    // fputc('\n', stderr);
 }
 
 IonJSFrameLayout *

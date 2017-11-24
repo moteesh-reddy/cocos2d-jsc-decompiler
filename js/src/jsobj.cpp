@@ -6029,7 +6029,7 @@ js_DumpBacktrace(JSContext *cx)
                         depth, (i.isJit() ? 0 : i.interpFrame()), filename, line,
                         script, script->pcToOffset(i.pc()));
     }
-    fprintf(stdout, "%s", sprinter.string());
+    // fprintf(stdout, "%s", sprinter.string());
 }
 
 void

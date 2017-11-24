@@ -1298,7 +1298,7 @@ MIRGraph::dump(FILE *fp)
 void
 MIRGraph::dump()
 {
-    dump(stderr);
+    // dump(stderr);
 }
 
 void
@@ -1321,5 +1321,5 @@ MBasicBlock::dump(FILE *fp)
 void
 MBasicBlock::dump()
 {
-    dump(stderr);
+    // dump(stderr);
 }

@@ -1303,7 +1303,7 @@ LinearScanAllocator::go()
         return false;
 
     if (IonSpewEnabled(IonSpew_RegAlloc)) {
-        fprintf(stderr, "Allocations by virtual register:\n");
+        // fprintf(stderr, "Allocations by virtual register:\n");
         dumpVregs();
     }
 

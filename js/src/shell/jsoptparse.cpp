@@ -70,12 +70,12 @@ OptionParser::setArgCapturesRest(const char *name)
 OptionParser::Result
 OptionParser::error(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    fprintf(stderr, "Error: ");
-    vfprintf(stderr, fmt, args);
-    va_end(args);
-    fputs("\n\n", stderr);
+    // va_list args;
+    // va_start(args, fmt);
+    // fprintf(stderr, "Error: ");
+    // vfprintf(stderr, fmt, args);
+    // va_end(args);
+    // fputs("\n\n", stderr);
     return ParseError;
 }
 

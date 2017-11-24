@@ -224,12 +224,12 @@ types::InferSpew(SpewChannel channel, const char *fmt, ...)
     if (!InferSpewActive(channel))
         return;
 
-    va_list ap;
-    va_start(ap, fmt);
-    fprintf(stderr, "[infer] ");
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
-    va_end(ap);
+    // va_list ap;
+    // va_start(ap, fmt);
+    // fprintf(stderr, "[infer] ");
+    // vfprintf(stderr, fmt, ap);
+    // fprintf(stderr, "\n");
+    // va_end(ap);
 }
 
 bool
@@ -571,51 +571,51 @@ ConstraintTypeSet::addType(ExclusiveContext *cxArg, Type type)
 void
 TypeSet::print()
 {
-    if (flags & TYPE_FLAG_NON_DATA_PROPERTY)
-        fprintf(stderr, " [non-data]");
+    // if (flags & TYPE_FLAG_NON_DATA_PROPERTY)
+    //     fprintf(stderr, " [non-data]");
 
-    if (flags & TYPE_FLAG_NON_WRITABLE_PROPERTY)
-        fprintf(stderr, " [non-writable]");
+    // if (flags & TYPE_FLAG_NON_WRITABLE_PROPERTY)
+    //     fprintf(stderr, " [non-writable]");
 
-    if (definiteProperty())
-        fprintf(stderr, " [definite:%d]", definiteSlot());
+    // if (definiteProperty())
+    //     fprintf(stderr, " [definite:%d]", definiteSlot());
 
-    if (baseFlags() == 0 && !baseObjectCount()) {
-        fprintf(stderr, " missing");
-        return;
-    }
+    // if (baseFlags() == 0 && !baseObjectCount()) {
+    //     fprintf(stderr, " missing");
+    //     return;
+    // }
 
-    if (flags & TYPE_FLAG_UNKNOWN)
-        fprintf(stderr, " unknown");
-    if (flags & TYPE_FLAG_ANYOBJECT)
-        fprintf(stderr, " object");
+    // if (flags & TYPE_FLAG_UNKNOWN)
+    //     fprintf(stderr, " unknown");
+    // if (flags & TYPE_FLAG_ANYOBJECT)
+    //     fprintf(stderr, " object");
 
-    if (flags & TYPE_FLAG_UNDEFINED)
-        fprintf(stderr, " void");
-    if (flags & TYPE_FLAG_NULL)
-        fprintf(stderr, " null");
-    if (flags & TYPE_FLAG_BOOLEAN)
-        fprintf(stderr, " bool");
-    if (flags & TYPE_FLAG_INT32)
-        fprintf(stderr, " int");
-    if (flags & TYPE_FLAG_DOUBLE)
-        fprintf(stderr, " float");
-    if (flags & TYPE_FLAG_STRING)
-        fprintf(stderr, " string");
-    if (flags & TYPE_FLAG_LAZYARGS)
-        fprintf(stderr, " lazyargs");
+    // if (flags & TYPE_FLAG_UNDEFINED)
+    //     fprintf(stderr, " void");
+    // if (flags & TYPE_FLAG_NULL)
+    //     fprintf(stderr, " null");
+    // if (flags & TYPE_FLAG_BOOLEAN)
+    //     fprintf(stderr, " bool");
+    // if (flags & TYPE_FLAG_INT32)
+    //     fprintf(stderr, " int");
+    // if (flags & TYPE_FLAG_DOUBLE)
+    //     fprintf(stderr, " float");
+    // if (flags & TYPE_FLAG_STRING)
+    //     fprintf(stderr, " string");
+    // if (flags & TYPE_FLAG_LAZYARGS)
+    //     fprintf(stderr, " lazyargs");
 
-    uint32_t objectCount = baseObjectCount();
-    if (objectCount) {
-        fprintf(stderr, " object[%u]", objectCount);
+    // uint32_t objectCount = baseObjectCount();
+    // if (objectCount) {
+    //     fprintf(stderr, " object[%u]", objectCount);
 
-        unsigned count = getObjectCount();
-        for (unsigned i = 0; i < count; i++) {
-            TypeObjectKey *object = getObject(i);
-            if (object)
-                fprintf(stderr, " %s", TypeString(Type::ObjectType(object)));
-        }
-    }
+    //     unsigned count = getObjectCount();
+    //     for (unsigned i = 0; i < count; i++) {
+    //         TypeObjectKey *object = getObject(i);
+    //         if (object)
+    //             fprintf(stderr, " %s", TypeString(Type::ObjectType(object)));
+    //     }
+    // }
 }
 
 /* static */ void
@@ -3238,45 +3238,45 @@ TypeObject::clearNewScriptAddendum(ExclusiveContext *cx)
 void
 TypeObject::print()
 {
-    TaggedProto tagged(proto());
-    fprintf(stderr, "%s : %s",
-            TypeObjectString(this),
-            tagged.isObject() ? TypeString(Type::ObjectType(tagged.toObject()))
-                              : (tagged.isLazy() ? "(lazy)" : "(null)"));
+    // TaggedProto tagged(proto());
+    // fprintf(stderr, "%s : %s",
+    //         TypeObjectString(this),
+    //         tagged.isObject() ? TypeString(Type::ObjectType(tagged.toObject()))
+    //                           : (tagged.isLazy() ? "(lazy)" : "(null)"));
 
-    if (unknownProperties()) {
-        fprintf(stderr, " unknown");
-    } else {
-        if (!hasAnyFlags(OBJECT_FLAG_SPARSE_INDEXES))
-            fprintf(stderr, " dense");
-        if (!hasAnyFlags(OBJECT_FLAG_NON_PACKED))
-            fprintf(stderr, " packed");
-        if (!hasAnyFlags(OBJECT_FLAG_LENGTH_OVERFLOW))
-            fprintf(stderr, " noLengthOverflow");
-        if (hasAnyFlags(OBJECT_FLAG_ITERATED))
-            fprintf(stderr, " iterated");
-        if (interpretedFunction)
-            fprintf(stderr, " ifun");
-    }
+    // if (unknownProperties()) {
+    //     fprintf(stderr, " unknown");
+    // } else {
+    //     if (!hasAnyFlags(OBJECT_FLAG_SPARSE_INDEXES))
+    //         fprintf(stderr, " dense");
+    //     if (!hasAnyFlags(OBJECT_FLAG_NON_PACKED))
+    //         fprintf(stderr, " packed");
+    //     if (!hasAnyFlags(OBJECT_FLAG_LENGTH_OVERFLOW))
+    //         fprintf(stderr, " noLengthOverflow");
+    //     if (hasAnyFlags(OBJECT_FLAG_ITERATED))
+    //         fprintf(stderr, " iterated");
+    //     if (interpretedFunction)
+    //         fprintf(stderr, " ifun");
+    // }
 
-    unsigned count = getPropertyCount();
+    // unsigned count = getPropertyCount();
 
-    if (count == 0) {
-        fprintf(stderr, " {}\n");
-        return;
-    }
+    // if (count == 0) {
+    //     fprintf(stderr, " {}\n");
+    //     return;
+    // }
 
-    fprintf(stderr, " {");
+    // fprintf(stderr, " {");
 
-    for (unsigned i = 0; i < count; i++) {
-        Property *prop = getProperty(i);
-        if (prop) {
-            fprintf(stderr, "\n    %s:", TypeIdString(prop->id));
-            prop->types.print();
-        }
-    }
+    // for (unsigned i = 0; i < count; i++) {
+    //     Property *prop = getProperty(i);
+    //     if (prop) {
+    //         fprintf(stderr, "\n    %s:", TypeIdString(prop->id));
+    //         prop->types.print();
+    //     }
+    // }
 
-    fprintf(stderr, "\n}\n");
+    // fprintf(stderr, "\n}\n");
 }
 
 /////////////////////////////////////////////////////////////////////

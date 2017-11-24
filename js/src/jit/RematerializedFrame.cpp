@@ -124,69 +124,69 @@ RematerializedFrame::mark(JSTracer *trc)
 void
 RematerializedFrame::dump()
 {
-    fprintf(stderr, " Rematerialized Ion Frame%s\n", inlined() ? " (inlined)" : "");
-    if (isFunctionFrame()) {
-        fprintf(stderr, "  callee fun: ");
-#ifdef DEBUG
-        js_DumpValue(ObjectValue(*callee()));
-#else
-        fprintf(stderr, "?\n");
-#endif
-    } else {
-        fprintf(stderr, "  global frame, no callee\n");
-    }
+//     fprintf(stderr, " Rematerialized Ion Frame%s\n", inlined() ? " (inlined)" : "");
+//     if (isFunctionFrame()) {
+//         fprintf(stderr, "  callee fun: ");
+// #ifdef DEBUG
+//         js_DumpValue(ObjectValue(*callee()));
+// #else
+//         fprintf(stderr, "?\n");
+// #endif
+//     } else {
+//         fprintf(stderr, "  global frame, no callee\n");
+//     }
 
-    fprintf(stderr, "  file %s line %u offset %zu\n",
-            script()->filename(), (unsigned) script()->lineno(),
-            script()->pcToOffset(pc()));
+//     fprintf(stderr, "  file %s line %u offset %zu\n",
+//             script()->filename(), (unsigned) script()->lineno(),
+//             script()->pcToOffset(pc()));
 
-    fprintf(stderr, "  script = %p\n", (void*) script());
+//     fprintf(stderr, "  script = %p\n", (void*) script());
 
-    if (isFunctionFrame()) {
-        fprintf(stderr, "  scope chain: ");
-#ifdef DEBUG
-        js_DumpValue(ObjectValue(*scopeChain()));
-#else
-        fprintf(stderr, "?\n");
-#endif
+//     if (isFunctionFrame()) {
+//         fprintf(stderr, "  scope chain: ");
+// #ifdef DEBUG
+//         js_DumpValue(ObjectValue(*scopeChain()));
+// #else
+//         fprintf(stderr, "?\n");
+// #endif
 
-        if (hasArgsObj()) {
-            fprintf(stderr, "  args obj: ");
-#ifdef DEBUG
-            js_DumpValue(ObjectValue(argsObj()));
-#else
-            fprintf(stderr, "?\n");
-#endif
-        }
+//         if (hasArgsObj()) {
+//             fprintf(stderr, "  args obj: ");
+// #ifdef DEBUG
+//             js_DumpValue(ObjectValue(argsObj()));
+// #else
+//             fprintf(stderr, "?\n");
+// #endif
+//         }
 
-        fprintf(stderr, "  this: ");
-#ifdef DEBUG
-        js_DumpValue(thisValue());
-#else
-        fprintf(stderr, "?\n");
-#endif
+//         fprintf(stderr, "  this: ");
+// #ifdef DEBUG
+//         js_DumpValue(thisValue());
+// #else
+//         fprintf(stderr, "?\n");
+// #endif
 
-        for (unsigned i = 0; i < numActualArgs(); i++) {
-            if (i < numFormalArgs())
-                fprintf(stderr, "  formal (arg %d): ", i);
-            else
-                fprintf(stderr, "  overflown (arg %d): ", i);
-#ifdef DEBUG
-            js_DumpValue(argv()[i]);
-#else
-            fprintf(stderr, "?\n");
-#endif
-        }
+//         for (unsigned i = 0; i < numActualArgs(); i++) {
+//             if (i < numFormalArgs())
+//                 fprintf(stderr, "  formal (arg %d): ", i);
+//             else
+//                 fprintf(stderr, "  overflown (arg %d): ", i);
+// #ifdef DEBUG
+//             js_DumpValue(argv()[i]);
+// #else
+//             fprintf(stderr, "?\n");
+// #endif
+//         }
 
-        for (unsigned i = 0; i < script()->nfixed(); i++) {
-            fprintf(stderr, "  local %d: ", i);
-#ifdef DEBUG
-            js_DumpValue(locals()[i]);
-#else
-            fprintf(stderr, "?\n");
-#endif
-        }
-    }
+//         for (unsigned i = 0; i < script()->nfixed(); i++) {
+//             fprintf(stderr, "  local %d: ", i);
+// #ifdef DEBUG
+//             js_DumpValue(locals()[i]);
+// #else
+//             fprintf(stderr, "?\n");
+// #endif
+//         }
+//     }
 
-    fputc('\n', stderr);
+//     fputc('\n', stderr);
 }

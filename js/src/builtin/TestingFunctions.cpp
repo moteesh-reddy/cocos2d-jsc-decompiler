@@ -1028,7 +1028,9 @@ DumpHeapComplete(JSContext *cx, unsigned argc, jsval *vp)
         return false;
     }
 
-    js::DumpHeapComplete(JS_GetRuntime(cx), dumpFile ? dumpFile : stdout, nurseryBehaviour);
+    if (dumpFile) {
+        js::DumpHeapComplete(JS_GetRuntime(cx), dumpFile, nurseryBehaviour);
+    }
 
     if (dumpFile)
         fclose(dumpFile);

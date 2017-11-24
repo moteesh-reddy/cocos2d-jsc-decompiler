@@ -299,7 +299,7 @@ SymbolicBound::dump() const
     Sprinter sp(GetIonContext()->cx);
     sp.init();
     print(sp);
-    fprintf(stderr, "%s\n", sp.string());
+    // fprintf(stderr, "%s\n", sp.string());
 }
 
 // Test whether the given range's exponent tells us anything that its lower
@@ -379,7 +379,7 @@ Range::dump(FILE *fp) const
 void
 Range::dump() const
 {
-    dump(stderr);
+    // dump(stderr);
 }
 
 Range *
