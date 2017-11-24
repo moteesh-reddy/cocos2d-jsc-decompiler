@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <elf.h>
 #include <stdio.h>
+#include <string.h>
 
 // lame check for kernel version
 // see bug 586550

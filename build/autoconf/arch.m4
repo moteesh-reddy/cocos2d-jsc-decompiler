@@ -30,7 +30,7 @@ if test -z "$MOZ_ARCH"; then
     case "${CPU_ARCH}-${OS_TARGET}" in
     arm-Android)
         MOZ_THUMB=yes
-        MOZ_ARCH=armv7-a
+#cjh        MOZ_ARCH=armv7-a
         MOZ_FPU=vfp
         MOZ_FLOAT_ABI=softfp
         MOZ_ALIGN=no
