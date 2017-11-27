@@ -38,7 +38,7 @@ using JS::AutoCheckCannotGC;
 static void
 selfHosting_ErrorReporter(JSContext *cx, const char *message, JSErrorReport *report)
 {
-    // PrintError(cx, stderr, message, report, true);
+    PrintError(cx, stderr, message, report, true);
 }
 
 static const JSClass self_hosting_global_class = {
