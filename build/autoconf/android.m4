@@ -31,7 +31,7 @@ MOZ_ARG_ENABLE_BOOL(android-libstdcxx,
     MOZ_ANDROID_LIBSTDCXX=1,
     MOZ_ANDROID_LIBSTDCXX= )
 
-define([MIN_ANDROID_VERSION], [9])
+define([MIN_ANDROID_VERSION], [14])
 android_version=MIN_ANDROID_VERSION
 
 MOZ_ARG_WITH_STRING(android-version,
@@ -185,16 +185,16 @@ case "$target" in
     STRIP="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-strip
     OBJCOPY="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-objcopy
 
-    CPPFLAGS="-I$android_platform/usr/include $CPPFLAGS"
-    CFLAGS="-target $clang_target -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix -fno-short-enums -fno-exceptions -Wno-inconsistent-missing-override -Wno-invalid-offsetof -gcc-toolchain $gcc_toolchain --sysroot=$android_platform $CFLAGS"
-    CXXFLAGS="-target $clang_target -fno-short-enums -fno-exceptions -gcc-toolchain $gcc_toolchain --sysroot=$android_platform -Wno-psabi -Wno-inconsistent-missing-override -Wno-invalid-offsetof $CXXFLAGS"
-    ASFLAGS="-idirafter $android_platform/usr/include -DANDROID $ASFLAGS"
+    CPPFLAGS="$CPPFLAGS"
+    CFLAGS="-target $clang_target -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS -DANDROID -D__ANDROID_API__=${android_version} -I$android_ndk/sources/android/support/include -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix -fno-short-enums -fno-exceptions -Wno-inconsistent-missing-override -Wno-invalid-offsetof -gcc-toolchain $gcc_toolchain --sysroot=$android_platform $CFLAGS"
+    CXXFLAGS="-Wno-psabi $CFLAGS $CXXFLAGS"
+    ASFLAGS="-I$android_platform/usr/include $ASFLAGS"
 
     dnl Add -llog by default, since we use it all over the place.
     dnl Add --allow-shlib-undefined, because libGLESv2 links to an
     dnl undefined symbol (present on the hardware, just not in the
     dnl NDK.)
-    LDFLAGS="-target $clang_target -L$android_platform/usr/lib -Wl,-rpath-link=$android_platform/usr/lib -llog -Wl,--allow-shlib-undefined $LDFLAGS"
+    LDFLAGS="-L$android_platform/usr/lib -Wl,-rpath-link=$android_platform/usr/lib -llog -Wl,--allow-shlib-undefined $LDFLAGS"
     dnl prevent cross compile section from using these flags as host flags
     if test -z "$HOST_CPPFLAGS" ; then
         HOST_CPPFLAGS=" "
@@ -234,13 +234,13 @@ if test "$OS_TARGET" = "Android" -a -z "$gonkdir"; then
     if test -e "$android_ndk/sources/cxx-stl/llvm-libc++/libs/$ANDROID_CPU_ARCH/libc++_static.a"; then
         # android-ndk-r16
         STLPORT_LIBS="-L$android_ndk/sources/cxx-stl/llvm-libc++/libs/$ANDROID_CPU_ARCH -lc++_static -lc++abi -landroid_support -latomic"
-        STLPORT_CPPFLAGS="-I$android_ndk/sources/cxx-stl/llvm-libc++/include -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix"
+        STLPORT_CPPFLAGS="-I$android_ndk/sources/cxx-stl/llvm-libc++/include"
     else
         AC_MSG_ERROR([Couldn't find path to libc++_static in the android ndk])
     fi
 
 
-    CXXFLAGS="$CXXFLAGS $STLPORT_CPPFLAGS"
+    CXXFLAGS="$STLPORT_CPPFLAGS $CXXFLAGS"
 fi
 AC_SUBST([MOZ_ANDROID_LIBSTDCXX])
 AC_SUBST([STLPORT_LIBS])
