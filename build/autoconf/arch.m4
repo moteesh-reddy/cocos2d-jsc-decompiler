@@ -29,8 +29,16 @@ if test -z "$MOZ_ARCH"; then
     dnl Defaults
     case "${CPU_ARCH}-${OS_TARGET}" in
     arm-Android)
-        MOZ_THUMB=yes
-#cjh        MOZ_ARCH=armv7-a
+        case "$android_arch" in 
+        armeabi-v7a)
+            MOZ_THUMB=yes
+            MOZ_ARCH=armv7
+            ;;
+        armeabi)
+            MOZ_THUMB=no
+            MOZ_ARCH=armv6
+            ;;
+        esac
         MOZ_FPU=vfp
         MOZ_FLOAT_ABI=softfp
         MOZ_ALIGN=no
@@ -91,7 +99,7 @@ toolchain-default|"")
     arch_flag=""
     ;;
 *)
-    arch_flag="-march=$MOZ_ARCH"
+    arch_flag=""
     ;;
 esac
 

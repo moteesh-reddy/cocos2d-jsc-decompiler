@@ -20,6 +20,11 @@ MOZ_ARG_WITH_STRING(android-gnu-compiler-version,
                           gnu compiler version to use],
     android_gnu_compiler_version=$withval)
 
+MOZ_ARG_WITH_STRING(android-arch,
+[  --with-android-arch=VER
+                          android arch],
+    android_arch=$withval)
+
 MOZ_ARG_ENABLE_BOOL(android-libstdcxx,
 [  --enable-android-libstdcxx
                           use GNU libstdc++ instead of STLPort],
@@ -41,18 +46,23 @@ fi
 case "$target" in
 arm-linux*-android*|*-linuxandroid*)
     android_tool_prefix="arm-linux-androideabi"
+    android_toolchain_name=$android_tool_prefix
     ;;
 i?86-*android*)
     android_tool_prefix="i686-linux-android"
+    android_toolchain_name="x86"
     ;;
 mipsel-*android*)
     android_tool_prefix="mipsel-linux-android"
+    android_toolchain_name=$android_tool_prefix
     ;;
 aarch64-linux*-android*)
     android_tool_prefix="aarch64-linux-android"
+    android_toolchain_name=$android_tool_prefix
     ;;
 *)
     android_tool_prefix="$target_os"
+    android_toolchain_name=$android_tool_prefix
     ;;
 esac
 
@@ -67,7 +77,7 @@ case "$target" in
 
         kernel_name=`uname -s | tr "[[:upper:]]" "[[:lower:]]"`
 
-        for version in $android_gnu_compiler_version 4.8 4.7 4.6 4.4.3; do
+        for version in $android_gnu_compiler_version 4.9; do
             case "$target_cpu" in
             arm)
                 target_name=arm-linux-androideabi-$version
@@ -119,21 +129,33 @@ case "$target" in
 
     AC_MSG_CHECKING([for android platform directory])
 
+    gcc_toolchain="${android_ndk}/toolchains/${android_toolchain_name}-${android_gnu_compiler_version}/prebuilt/darwin-x86_64"
+    
     case "$target_cpu" in
     arm)
         target_name=arm
+        if test "$android_arch" = "armeabi-v7a"; then
+            clang_target="armv7-none-linux-androideabi"            
+        else
+            clang_target="armv6-none-linux-androideabi"
+        fi
         ;;
     i?86)
         target_name=x86
+        clang_target="i686-none-linux-android"
+        gcc_toolchain="${android_ndk}/toolchains/x86-${android_gnu_compiler_version}/prebuilt/darwin-x86_64"
         ;;
     mipsel)
         target_name=mips
+        clang_target="mipsel-none-linux-android"
         ;;
     aarch64)
         target_name=arm64
+        clang_target="aarch64-none-linux-android"
         ;;
     arm64)
         target_name=arm64
+        clang_target="aarch64-none-linux-android"
         ;;
     esac
 
@@ -145,19 +167,8 @@ case "$target" in
         AC_MSG_ERROR([not found. Please check your NDK. With the current configuration, it should be in $android_platform])
     fi
 
-    dnl Old NDK support. If minimum requirement is changed to NDK r8b,
-    dnl please remove this.
-    case "$target_cpu" in
-    i?86)
-        if ! test -e "$android_toolchain"/bin/clang; then
-            dnl Old NDK toolchain name
-            android_tool_prefix="i686-android-linux"
-        fi
-        ;;
-    esac
-
     dnl set up compilers
-    TOOLCHAIN_PREFIX="$android_toolchain/bin/$android_tool_prefix-"
+    TOOLCHAIN_PREFIX="$android_ndk/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/$android_tool_prefix-"
     AS="$android_toolchain"/bin/llvm-as
     if test -z "$CC"; then
         CC="$android_toolchain"/bin/clang
@@ -170,20 +181,20 @@ case "$target" in
     fi
     LD="$android_toolchain"/bin/llvm-ld
     AR="$android_toolchain"/bin/llvm-ar
-    RANLIB="$android_ndk"/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-ranlib
-    STRIP="$android_ndk"/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-strip
-    OBJCOPY="$android_ndk"/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-objcopy
+    RANLIB="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-ranlib
+    STRIP="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-strip
+    OBJCOPY="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-objcopy
 
-    CPPFLAGS="-idirafter $android_platform/usr/include $CPPFLAGS"
-    CFLAGS="-target armv7-none-linux-androideabi -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/arm-linux-androideabi -fno-short-enums -fno-exceptions -gcc-toolchain $android_ndk/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64 --sysroot=$android_platform $CFLAGS"
-    CXXFLAGS="-target armv7-none-linux-androideabi -fno-short-enums -fno-exceptions -gcc-toolchain $android_ndk/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64 --sysroot=$android_platform -Wno-psabi $CXXFLAGS"
+    CPPFLAGS="-I$android_platform/usr/include $CPPFLAGS"
+    CFLAGS="-target $clang_target -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix -fno-short-enums -fno-exceptions -Wno-inconsistent-missing-override -Wno-invalid-offsetof -gcc-toolchain $gcc_toolchain --sysroot=$android_platform $CFLAGS"
+    CXXFLAGS="-target $clang_target -fno-short-enums -fno-exceptions -gcc-toolchain $gcc_toolchain --sysroot=$android_platform -Wno-psabi -Wno-inconsistent-missing-override -Wno-invalid-offsetof $CXXFLAGS"
     ASFLAGS="-idirafter $android_platform/usr/include -DANDROID $ASFLAGS"
 
     dnl Add -llog by default, since we use it all over the place.
     dnl Add --allow-shlib-undefined, because libGLESv2 links to an
     dnl undefined symbol (present on the hardware, just not in the
     dnl NDK.)
-    LDFLAGS="-target armv7-none-linux-androideabi -L$android_platform/usr/lib -Wl,-rpath-link=$android_platform/usr/lib -llog -Wl,--allow-shlib-undefined $LDFLAGS"
+    LDFLAGS="-target $clang_target -L$android_platform/usr/lib -Wl,-rpath-link=$android_platform/usr/lib -llog -Wl,--allow-shlib-undefined $LDFLAGS"
     dnl prevent cross compile section from using these flags as host flags
     if test -z "$HOST_CPPFLAGS" ; then
         HOST_CPPFLAGS=" "
@@ -216,40 +227,19 @@ AC_DEFUN([MOZ_ANDROID_STLPORT],
 [
 
 if test "$OS_TARGET" = "Android" -a -z "$gonkdir"; then
-    case "${CPU_ARCH}-${MOZ_ARCH}" in
-    arm-armv7*)
-        ANDROID_CPU_ARCH=armeabi-v7a
-        ;;
-    arm-*)
-        ANDROID_CPU_ARCH=armeabi
-        ;;
-    aarch64*)
-        ANDROID_CPU_ARCH=arm64-v8a
-        ;;
-    x86-*)
-        ANDROID_CPU_ARCH=x86
-        ;;
-    mips-*) # When target_cpu is mipsel, CPU_ARCH is mips
-        ANDROID_CPU_ARCH=mips
-        ;;
-    esac
+    ANDROID_CPU_ARCH=$android_arch
 
     AC_SUBST(ANDROID_CPU_ARCH)
 
-    if test -z "$STLPORT_CPPFLAGS$STLPORT_LDFLAGS$STLPORT_LIBS"; then
-        if test -n "$MOZ_ANDROID_LIBSTDCXX" ; then
-            if test -e "$android_ndk/sources/cxx-stl/llvm-libc++/libs/$ANDROID_CPU_ARCH/libc++_static.a"; then
-                # android-ndk-r16
-                STLPORT_LIBS="-L$android_ndk/sources/cxx-stl/llvm-libc++/libs/$ANDROID_CPU_ARCH -lc++_static -lc++abi -landroid_support -lunwind -latomic"
-                STLPORT_CPPFLAGS="-I$android_ndk/sources/cxx-stl/llvm-libc++/include -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/arm-linux-androideabi"
-            else
-                AC_MSG_ERROR([Couldn't find path to libc++_static in the android ndk])
-            fi
-        else
-            STLPORT_CPPFLAGS="-isystem $_topsrcdir/build/stlport/stlport -isystem $android_ndk/sources/cxx-stl/system/include"
-            STLPORT_LIBS="$_objdir/build/stlport/libstlport_static.a -static-libstdc++"
-        fi
+    if test -e "$android_ndk/sources/cxx-stl/llvm-libc++/libs/$ANDROID_CPU_ARCH/libc++_static.a"; then
+        # android-ndk-r16
+        STLPORT_LIBS="-L$android_ndk/sources/cxx-stl/llvm-libc++/libs/$ANDROID_CPU_ARCH -lc++_static -lc++abi -landroid_support -latomic"
+        STLPORT_CPPFLAGS="-I$android_ndk/sources/cxx-stl/llvm-libc++/include -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix"
+    else
+        AC_MSG_ERROR([Couldn't find path to libc++_static in the android ndk])
     fi
+
+
     CXXFLAGS="$CXXFLAGS $STLPORT_CPPFLAGS"
 fi
 AC_SUBST([MOZ_ANDROID_LIBSTDCXX])
