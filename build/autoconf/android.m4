@@ -179,15 +179,16 @@ case "$target" in
     if test -z "$CPP"; then
         CPP="$android_toolchain"/bin/clang++
     fi
-    LD="$android_toolchain"/bin/llvm-ld
+    LD="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-ld
     AR="$android_toolchain"/bin/llvm-ar
     RANLIB="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-ranlib
     STRIP="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-strip
     OBJCOPY="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-objcopy
 
-    CPPFLAGS="$CPPFLAGS"
-    CFLAGS="-target $clang_target -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS -DANDROID -D__ANDROID_API__=${android_version} -I$android_ndk/sources/android/support/include -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix -fno-short-enums -fno-exceptions -Wno-inconsistent-missing-override -Wno-invalid-offsetof -gcc-toolchain $gcc_toolchain --sysroot=$android_platform $CFLAGS"
-    CXXFLAGS="-Wno-psabi $CFLAGS $CXXFLAGS"
+    
+    CFLAGS="-target $clang_target -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS -DANDROID -D__ANDROID_API__=${android_version} -gcc-toolchain $gcc_toolchain --sysroot=$android_platform -I$android_ndk/sources/android/support/include -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix -fno-short-enums -fno-exceptions -Wno-inconsistent-missing-override -Wno-invalid-offsetof $CFLAGS"
+    CXXFLAGS="$CFLAGS $CXXFLAGS"
+    CPPFLAGS="$CXXFLAGS"
     ASFLAGS="-I$android_platform/usr/include $ASFLAGS"
 
     dnl Add -llog by default, since we use it all over the place.
