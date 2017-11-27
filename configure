@@ -10488,7 +10488,7 @@ if test $ac_cv_type_mode_t = no; then
     (''' mode_t ''', r''' int ''')
 EOF
 cat >> confdefs.h <<\EOF
-#define mode_t int
+
 EOF
 
 fi
@@ -10524,7 +10524,7 @@ if test $ac_cv_type_off_t = no; then
     (''' off_t ''', r''' long ''')
 EOF
 cat >> confdefs.h <<\EOF
-#define off_t long
+
 EOF
 
 fi
@@ -10560,7 +10560,7 @@ if test $ac_cv_type_pid_t = no; then
     (''' pid_t ''', r''' int ''')
 EOF
 cat >> confdefs.h <<\EOF
-#define pid_t int
+
 EOF
 
 fi
@@ -10596,7 +10596,7 @@ if test $ac_cv_type_size_t = no; then
     (''' size_t ''', r''' unsigned ''')
 EOF
 cat >> confdefs.h <<\EOF
-#define size_t unsigned
+
 EOF
 
 fi

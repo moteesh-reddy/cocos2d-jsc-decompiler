@@ -52,7 +52,7 @@ rm -f ./config.cache
 ../configure --with-android-ndk=$NDK_ROOT \
              --with-android-sdk=$ANDROID_SDK_ROOT \
              --with-android-toolchain=$NDK_ROOT/toolchains/llvm/prebuilt/${host_os}-${host_arch} \
-             --with-android-version=21 \
+             --with-android-version=14 \
              --enable-readline=no \
              --enable-application=mobile/android \
              --with-android-gnu-compiler-version=${GCC_VERSION} \
