@@ -538,7 +538,7 @@ bool js_StartPerf()
         execvp("perf", const_cast<char**>(args.begin()));
 
         /* Reached only if execlp fails. */
-        // fprintf(stderr, "Unable to start perf.\n");
+        fprintf(stderr, "Unable to start perf.\n");
         exit(1);
     }
     else if (childPid > 0) {

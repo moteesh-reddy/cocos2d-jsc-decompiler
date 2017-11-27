@@ -1361,7 +1361,7 @@ Printf0_(const char *output) {
     // Use stderr instead of stdout because this is only used for debug
     // output. stderr is less likely to interfere with the program's normal
     // output, and it's always unbuffered.
-    // fprintf(stderr, "%s", output);
+    fprintf(stderr, "%s", output);
 }
 
 void
@@ -1382,9 +1382,9 @@ MacroAssembler::printf(const char *output)
 
 static void
 Printf1_(const char *output, uintptr_t value) {
-    // char *line = JS_sprintf_append(nullptr, output, value);
-    // fprintf(stderr, "%s", line);
-    // js_free(line);
+    char *line = JS_sprintf_append(nullptr, output, value);
+    fprintf(stderr, "%s", line);
+    js_free(line);
 }
 
 void

@@ -2065,7 +2065,7 @@ LinearSum::dump(FILE *fp) const
 void
 LinearSum::dump() const
 {
-    // dump(stderr);
+    dump(stderr);
 }
 
 static bool

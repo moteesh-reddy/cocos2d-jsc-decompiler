@@ -81,7 +81,7 @@ Requirement::toString() const
 void
 Requirement::dump() const
 {
-    // fprintf(stderr, "%s\n", toString());
+    fprintf(stderr, "%s\n", toString());
 }
 
 bool
@@ -143,7 +143,7 @@ LiveInterval::Range::toString() const
 void
 LiveInterval::Range::dump() const
 {
-    // fprintf(stderr, "%s\n", toString());
+    fprintf(stderr, "%s\n", toString());
 }
 
 bool
@@ -955,7 +955,7 @@ LiveRangeAllocator<VREG, forLSRA>::buildLivenessInfo()
     if (IonSpewEnabled(IonSpew_RegAlloc)) {
         dumpInstructions();
 
-        // fprintf(stderr, "Live ranges by virtual register:\n");
+        fprintf(stderr, "Live ranges by virtual register:\n");
         dumpVregs();
     }
 
@@ -1117,5 +1117,5 @@ LiveInterval::toString() const
 void
 LiveInterval::dump() const
 {
-    // fprintf(stderr, "%s\n", toString());
+    fprintf(stderr, "%s\n", toString());
 }

@@ -4300,7 +4300,7 @@ class AutoFile
     {}
     ~AutoFile()
     {
-        if (fp_)
+        if (fp_ && fp_ != stdin)
             fclose(fp_);
     }
     FILE *fp() const { return fp_; }
@@ -4321,10 +4321,9 @@ class AutoFile
 bool
 AutoFile::open(JSContext *cx, const char *filename)
 {
-    // if (!filename || strcmp(filename, "-") == 0) {
-    //     fp_ = stdin;
-    // } else 
-    {
+    if (!filename || strcmp(filename, "-") == 0) {
+        fp_ = stdin;
+    } else {
         fp_ = fopen(filename, "r");
         if (!fp_) {
             JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr, JSMSG_CANT_OPEN,

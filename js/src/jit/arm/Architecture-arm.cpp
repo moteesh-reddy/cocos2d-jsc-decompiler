@@ -115,9 +115,8 @@ ParseARMHwCapFlags(const char *armHwCap)
         else if (count == 6 && strncmp(start, "hardfp", 6) == 0)
             flags |= HWCAP_USE_HARDFP_ABI;
 #endif
-        else {
-            // fprintf(stderr, "Warning: unexpected ARMHWCAP flag at: %s\n", start);
-        }
+        else
+            fprintf(stderr, "Warning: unexpected ARMHWCAP flag at: %s\n", start);
         start = end;
     }
 #ifdef DEBUG

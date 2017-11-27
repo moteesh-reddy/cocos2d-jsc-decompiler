@@ -679,10 +679,10 @@ JS_DumpPCCounts(JSContext *cx, HandleScript script)
     if (!sprinter.init())
         return;
 
-    // fprintf(stdout, "--- SCRIPT %s:%d ---\n", script->filename(), (int) script->lineno());
-    // js_DumpPCCounts(cx, script, &sprinter);
-    // fputs(sprinter.string(), stdout);
-    // fprintf(stdout, "--- END SCRIPT %s:%d ---\n", script->filename(), (int) script->lineno());
+    fprintf(stdout, "--- SCRIPT %s:%d ---\n", script->filename(), (int) script->lineno());
+    js_DumpPCCounts(cx, script, &sprinter);
+    fputs(sprinter.string(), stdout);
+    fprintf(stdout, "--- END SCRIPT %s:%d ---\n", script->filename(), (int) script->lineno());
 }
 
 JS_PUBLIC_API(void)
@@ -711,15 +711,15 @@ JS_DumpCompartmentPCCounts(JSContext *cx)
                 if (!sprinter.init())
                     return;
 
-                // fprintf(stdout, "--- Asm.js Module ---\n");
+                fprintf(stdout, "--- Asm.js Module ---\n");
 
-                // for (size_t i = 0; i < module.numFunctionCounts(); i++) {
-                //     jit::IonScriptCounts *counts = module.functionCounts(i);
-                //     DumpIonScriptCounts(&sprinter, counts);
-                // }
+                for (size_t i = 0; i < module.numFunctionCounts(); i++) {
+                    jit::IonScriptCounts *counts = module.functionCounts(i);
+                    DumpIonScriptCounts(&sprinter, counts);
+                }
 
-                // fputs(sprinter.string(), stdout);
-                // fprintf(stdout, "--- END Asm.js Module ---\n");
+                fputs(sprinter.string(), stdout);
+                fprintf(stdout, "--- END Asm.js Module ---\n");
             }
         }
     }

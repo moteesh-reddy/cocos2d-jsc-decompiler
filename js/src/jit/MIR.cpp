@@ -336,7 +336,7 @@ MDefinition::dump(FILE *fp) const
 void
 MDefinition::dump() const
 {
-    // dump(stderr);
+    dump(stderr);
 }
 
 #ifdef DEBUG
@@ -2391,7 +2391,7 @@ MResumePoint::dump(FILE *fp) const
 void
 MResumePoint::dump() const
 {
-    // dump(stderr);
+    dump(stderr);
 }
 
 bool

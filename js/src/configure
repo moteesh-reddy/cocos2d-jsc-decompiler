@@ -132,7 +132,7 @@ ac_help="$ac_help
                           use GNU libstdc++ instead of STLPort"
 ac_help="$ac_help
   --with-android-version=VER
-                          android platform version, default 9"
+                          android platform version, default 14"
 ac_help="$ac_help
   --with-compiler-wrapper[=path/to/wrapper]
     Enable compiling with wrappers such as distcc and ccache"
@@ -1661,7 +1661,7 @@ fi
 
 
 
-android_version=9
+android_version=14
 
 # Check whether --with-android-version or --without-android-version was given.
 if test "${with_android_version+set}" = set; then
@@ -1670,8 +1670,8 @@ if test "${with_android_version+set}" = set; then
 fi
 
 
-if test $android_version -lt 9 ; then
-    { echo "configure: error: --with-android-version must be at least 9." 1>&2; echo "configure: error: --with-android-version must be at least 9." 1>&5; exit 1; }
+if test $android_version -lt 14 ; then
+    { echo "configure: error: --with-android-version must be at least 14." 1>&2; echo "configure: error: --with-android-version must be at least 14." 1>&5; exit 1; }
 fi
 
 case "$target" in
@@ -1817,12 +1817,12 @@ echo "configure:1764: checking for android platform directory" >&5
     STRIP="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-strip
     OBJCOPY="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-objcopy
 
-    CPPFLAGS="-I$android_platform/usr/include $CPPFLAGS"
-    CFLAGS="-target $clang_target -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix -fno-short-enums -fno-exceptions -Wno-inconsistent-missing-override -Wno-invalid-offsetof -gcc-toolchain $gcc_toolchain --sysroot=$android_platform $CFLAGS"
-    CXXFLAGS="-target $clang_target -fno-short-enums -fno-exceptions -gcc-toolchain $gcc_toolchain --sysroot=$android_platform -Wno-psabi -Wno-inconsistent-missing-override -Wno-invalid-offsetof $CXXFLAGS"
-    ASFLAGS="-idirafter $android_platform/usr/include -DANDROID $ASFLAGS"
+    CPPFLAGS="$CPPFLAGS"
+    CFLAGS="-target $clang_target -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS -DANDROID -D__ANDROID_API__=${android_version} -I$android_ndk/sources/android/support/include -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix -fno-short-enums -fno-exceptions -Wno-inconsistent-missing-override -Wno-invalid-offsetof -gcc-toolchain $gcc_toolchain --sysroot=$android_platform $CFLAGS"
+    CXXFLAGS="-Wno-psabi $CFLAGS $CXXFLAGS"
+    ASFLAGS="-I$android_platform/usr/include $ASFLAGS"
 
-                    LDFLAGS="-target $clang_target -L$android_platform/usr/lib -Wl,-rpath-link=$android_platform/usr/lib -llog -Wl,--allow-shlib-undefined $LDFLAGS"
+                    LDFLAGS="-L$android_platform/usr/lib -Wl,-rpath-link=$android_platform/usr/lib -llog -Wl,--allow-shlib-undefined $LDFLAGS"
         if test -z "$HOST_CPPFLAGS" ; then
         HOST_CPPFLAGS=" "
     fi
@@ -6435,13 +6435,13 @@ if test "$OS_TARGET" = "Android" -a -z "$gonkdir"; then
     if test -e "$android_ndk/sources/cxx-stl/llvm-libc++/libs/$ANDROID_CPU_ARCH/libc++_static.a"; then
         # android-ndk-r16
         STLPORT_LIBS="-L$android_ndk/sources/cxx-stl/llvm-libc++/libs/$ANDROID_CPU_ARCH -lc++_static -lc++abi -landroid_support -latomic"
-        STLPORT_CPPFLAGS="-I$android_ndk/sources/cxx-stl/llvm-libc++/include -I$android_ndk/sysroot/usr/include -I$android_ndk/sysroot/usr/include/$android_tool_prefix"
+        STLPORT_CPPFLAGS="-I$android_ndk/sources/cxx-stl/llvm-libc++/include"
     else
         { echo "configure: error: Couldn't find path to libc++_static in the android ndk" 1>&2; echo "configure: error: Couldn't find path to libc++_static in the android ndk" 1>&5; exit 1; }
     fi
 
 
-    CXXFLAGS="$CXXFLAGS $STLPORT_CPPFLAGS"
+    CXXFLAGS="$STLPORT_CPPFLAGS $CXXFLAGS"
 fi
 
 

@@ -68,7 +68,7 @@ LIRGraph::dump(FILE *fp) const
 void
 LIRGraph::dump() const
 {
-    // dump(stderr);
+    dump(stderr);
 }
 
 LBlock *
@@ -175,7 +175,7 @@ LBlock::dump(FILE *fp)
 void
 LBlock::dump()
 {
-    // dump(stderr);
+    dump(stderr);
 }
 
 static size_t
@@ -446,13 +446,13 @@ LAllocation::toString() const
 void
 LAllocation::dump() const
 {
-    // fprintf(stderr, "%s\n", toString());
+    fprintf(stderr, "%s\n", toString());
 }
 
 void
 LDefinition::dump() const
 {
-    // fprintf(stderr, "%s\n", toString());
+    fprintf(stderr, "%s\n", toString());
 }
 
 void
@@ -522,8 +522,8 @@ LInstruction::dump(FILE *fp)
 void
 LInstruction::dump()
 {
-    // dump(stderr);
-    // fprintf(stderr, "\n");
+    dump(stderr);
+    fprintf(stderr, "\n");
 }
 
 void
