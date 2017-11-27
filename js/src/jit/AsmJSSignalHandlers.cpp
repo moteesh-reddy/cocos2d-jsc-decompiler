@@ -15,6 +15,15 @@
 using namespace js;
 using namespace js::jit;
 
+// hack for ndk r16
+static __inline__ int cc_ndk_sigemptyset(sigset_t *set)
+{
+    memset(set, 0, sizeof *set);
+    return 0;
+}
+#define sigemptyset cc_ndk_sigemptyset
+//
+
 using JS::GenericNaN;
 using mozilla::DebugOnly;
 
