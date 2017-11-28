@@ -99,7 +99,9 @@ toolchain-default|"")
     arch_flag=""
     ;;
 *)
-    arch_flag=""
+    if test "$OS_TARGET" != "Android"; then
+      arch_flag="-march=$MOZ_ARCH"
+    fi
     ;;
 esac
 
