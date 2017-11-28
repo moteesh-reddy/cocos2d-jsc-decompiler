@@ -3921,7 +3921,9 @@ System(JSContext *cx, unsigned argc, jsval *vp)
     if (!command)
         return false;
 
-    int result = system(command.ptr());
+    int result = 0;
+    // system isn't supported on iOS 11
+    // result = system(command.ptr());
     args.rval().setInt32(result);
     return true;
 }
