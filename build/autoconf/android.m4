@@ -177,7 +177,7 @@ case "$target" in
         CXX="$android_toolchain"/bin/clang++
     fi
     if test -z "$CPP"; then
-        CPP="$android_toolchain"/bin/clang++ -v
+        CPP="$android_toolchain"/bin/clang++
     fi
     LD="$android_ndk"/toolchains/${android_toolchain_name}-4.9/prebuilt/darwin-x86_64/bin/"$android_tool_prefix"-ld
     AR="$android_toolchain"/bin/llvm-ar
