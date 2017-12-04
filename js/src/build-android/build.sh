@@ -158,14 +158,14 @@ fi
 
 }
 
-# Build with armv6
-TOOLS_ARCH=arm-linux-androideabi
-TARGET_NAME=arm-linux-androideabi
-CPU_ARCH=armeabi
-RELEASE_ARCH_DIR=armeabi
-GCC_VERSION=4.9
-TOOLNAME_PREFIX=arm-linux-androideabi
-build_with_arch
+# # Build with armv6
+# TOOLS_ARCH=arm-linux-androideabi
+# TARGET_NAME=arm-linux-androideabi
+# CPU_ARCH=armeabi
+# RELEASE_ARCH_DIR=armeabi
+# GCC_VERSION=4.9
+# TOOLNAME_PREFIX=arm-linux-androideabi
+# build_with_arch
 
 # Build with armv7
 TOOLS_ARCH=arm-linux-androideabi
