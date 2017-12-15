@@ -170,8 +170,8 @@ dnl Updates to the test below should be duplicated further below for the
 dnl cross-compiling case.
 AC_LANG_CPLUSPLUS
 if test "$GNU_CXX"; then
-    CXXFLAGS="$CXXFLAGS -std=gnu++0x"
-    _ADDED_CXXFLAGS="-std=gnu++0x"
+    CXXFLAGS="$CXXFLAGS -std=c++11"
+    _ADDED_CXXFLAGS="-std=c++11"
 
     AC_CACHE_CHECK(for gcc c++0x headers bug without rtti,
         ac_cv_cxx0x_headers_bug,
@@ -207,7 +207,7 @@ EOF
     host_compiler=`$HOST_CXX -E conftest.C | egrep '(CLANG|GCC)'`
     rm conftest.C
     if test -n "$host_compiler"; then
-        HOST_CXXFLAGS="$HOST_CXXFLAGS -std=gnu++0x"
+        HOST_CXXFLAGS="$HOST_CXXFLAGS -std=c++11"
 
         _SAVE_CXXFLAGS="$CXXFLAGS"
         _SAVE_CPPFLAGS="$CPPFLAGS"
