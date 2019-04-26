@@ -6566,6 +6566,25 @@ JS_DecodeScript(JSContext *cx, const void *data, uint32_t length,
     return script;
 }
 
+JS_PUBLIC_API(bool)
+js_DumpJSC(JSContext *cx, JSScript *scriptArg,char *filename)
+{
+    js::gc::AutoSuppressGC suppressGC(cx);
+    Sprinter sprinter(cx);
+    if (!sprinter.init())
+        return false;
+    RootedScript script(cx, scriptArg);
+    bool ok = js_Disassemble(cx, script, true, &sprinter);
+    fprintf(stdout, "%s", sprinter.string());
+    FILE* f = fopen(filename, "wb");
+    if(f==NULL)
+   	return false;
+    fwrite(sprinter.string(), 1, sprinter.getOffset(), f);
+    fclose(f);
+
+    return ok;
+}
+
 JS_PUBLIC_API(JSObject *)
 JS_DecodeInterpretedFunction(JSContext *cx, const void *data, uint32_t length,
                              JSPrincipals *originPrincipals)
