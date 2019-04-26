@@ -8,7 +8,7 @@
  - Only contains the SpiderMonkey source code and needed files to compile it
  - Contains a few patches to make it compile on iOS (device and simulator)
  - Contains build scripts for iOS, Android, Win32 and OS X
- 
+ - Add code for decoding ".jsc" file 
  
 ## About builds
 
