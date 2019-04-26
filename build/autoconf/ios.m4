@@ -88,14 +88,14 @@ iPhoneOS|iPhoneSimulator)
     fi
 
     dnl set the compilers
-    AS="xcrun -sdk iphoneos as"
-    CC="xcrun -sdk iphoneos clang"
-    CXX="xcrun -sdk iphoneos clang++"
-    CPP="xcrun -sdk iphoneos clang -E"
-    LD="xcrun -sdk iphoneos ld"
-    AR="xcrun -sdk iphoneos ar"
-    RANLIB="xcrun -sdk iphoneos ranlib"
-    STRIP="xcrun -sdk iphoneos strip"
+    AS="$ios_toolchain"/as
+    CC="$ios_toolchain"/clang
+    CXX="$ios_toolchain"/clang++
+    CPP="$ios_toolchain/clang -E"
+    LD="$ios_toolchain"/ld
+    AR="$ios_toolchain"/ar
+    RANLIB="$ios_toolchain"/ranlib
+    STRIP="$ios_toolchain"/strip
     LDFLAGS="-isysroot $ios_sdk_root -arch $ios_arch -v"
 
     if test "$ios_target" == "iPhoneSimulator" ; then

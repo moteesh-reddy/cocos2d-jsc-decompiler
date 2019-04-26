@@ -3,7 +3,11 @@
 ## this script is supposed to be run one directory below the original configure script
 ## usually in build-ios
 
+<<<<<<< HEAD
 MIN_IOS_VERSION=6.0
+=======
+MIN_IOS_VERSION=7.0
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 IOS_SDK=9.2
 
 LIPO="xcrun -sdk iphoneos lipo"

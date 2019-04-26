@@ -432,13 +432,18 @@ function ArrayFind(predicate/*, thisArg*/) {
     var T = arguments.length > 1 ? arguments[1] : undefined;
 
     /* Steps 8-9. */
+<<<<<<< HEAD
     /* Steps a (implicit), and e. */
+=======
+    /* Steps a (implicit), and g. */
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
     /* Note: this will hang in some corner-case situations, because of IEEE-754 numbers'
      * imprecision for large values. Example:
      * var obj = { 18014398509481984: true, length: 18014398509481988 };
      * Array.prototype.find.call(obj, () => true);
      */
     for (var k = 0; k < len; k++) {
+<<<<<<< HEAD
         /* Steps b and c (implicit) */
         if (k in O) {
             /* Step d. */
@@ -446,6 +451,13 @@ function ArrayFind(predicate/*, thisArg*/) {
             if (callFunction(predicate, T, kValue, k, O))
                 return kValue;
         }
+=======
+        /* Steps a-c. */
+        var kValue = O[k];
+        /* Steps d-f. */
+        if (callFunction(predicate, T, kValue, k, O))
+            return kValue;
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
     }
 
     /* Step 10. */
@@ -470,19 +482,29 @@ function ArrayFindIndex(predicate/*, thisArg*/) {
     var T = arguments.length > 1 ? arguments[1] : undefined;
 
     /* Steps 8-9. */
+<<<<<<< HEAD
     /* Steps a (implicit), and e. */
+=======
+    /* Steps a (implicit), and g. */
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
     /* Note: this will hang in some corner-case situations, because of IEEE-754 numbers'
      * imprecision for large values. Example:
      * var obj = { 18014398509481984: true, length: 18014398509481988 };
      * Array.prototype.find.call(obj, () => true);
      */
     for (var k = 0; k < len; k++) {
+<<<<<<< HEAD
         /* Steps b and c (implicit) */
         if (k in O) {
             /* Step d. */
             if (callFunction(predicate, T, O[k], k, O))
                 return k;
         }
+=======
+        /* Steps a-f. */
+        if (callFunction(predicate, T, O[k], k, O))
+            return k;
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
     }
 
     /* Step 10. */
@@ -619,29 +641,55 @@ function ArrayIteratorNext() {
     var a = UnsafeGetReservedSlot(this, ARRAY_ITERATOR_SLOT_ITERATED_OBJECT);
     var index = UnsafeGetReservedSlot(this, ARRAY_ITERATOR_SLOT_NEXT_INDEX);
     var itemKind = UnsafeGetReservedSlot(this, ARRAY_ITERATOR_SLOT_ITEM_KIND);
+<<<<<<< HEAD
+=======
+    var result = { value: undefined, done: false };
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 
     // FIXME: This should be ToLength, which clamps at 2**53.  Bug 924058.
     if (index >= TO_UINT32(a.length)) {
         // When the above is changed to ToLength, use +1/0 here instead
         // of MAX_UINT32.
         UnsafeSetReservedSlot(this, ARRAY_ITERATOR_SLOT_NEXT_INDEX, 0xffffffff);
+<<<<<<< HEAD
         return { value: undefined, done: true };
+=======
+        result.done = true;
+        return result;
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
     }
 
     UnsafeSetReservedSlot(this, ARRAY_ITERATOR_SLOT_NEXT_INDEX, index + 1);
 
+<<<<<<< HEAD
     if (itemKind === ITEM_KIND_VALUE)
         return { value: a[index], done: false };
+=======
+    if (itemKind === ITEM_KIND_VALUE) {
+        result.value = a[index];
+        return result;
+    }
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 
     if (itemKind === ITEM_KIND_KEY_AND_VALUE) {
         var pair = NewDenseArray(2);
         pair[0] = index;
         pair[1] = a[index];
+<<<<<<< HEAD
         return { value: pair, done : false };
     }
 
     assert(itemKind === ITEM_KIND_KEY, itemKind);
     return { value: index, done: false };
+=======
+        result.value = pair;
+        return result;
+    }
+
+    assert(itemKind === ITEM_KIND_KEY, itemKind);
+    result.value = index;
+    return result;
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 }
 
 function ArrayValuesAt(n) {
@@ -789,8 +837,11 @@ function ArrayMapPar(func, mode) {
     }
     return sliceId;
   }
+<<<<<<< HEAD
 
   return undefined;
+=======
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 }
 
 /**
@@ -845,8 +896,11 @@ function ArrayReducePar(func, mode) {
     }
     return sliceId;
   }
+<<<<<<< HEAD
 
   return undefined;
+=======
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 }
 
 /**
@@ -996,8 +1050,11 @@ function ArrayScanPar(func, mode) {
     }
     return sliceId;
   }
+<<<<<<< HEAD
 
   return undefined;
+=======
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 }
 
 /**
@@ -1079,8 +1136,11 @@ function ArrayScatterPar(targets, defaultValue, conflictFunc, length, mode) {
     // It's not enough to return t, as -0 | 0 === -0.
     return TO_INT32(t);
   }
+<<<<<<< HEAD
 
   return undefined;
+=======
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 }
 
 /**
@@ -1189,8 +1249,11 @@ function ArrayFilterPar(func, mode) {
 
     return sliceId;
   }
+<<<<<<< HEAD
 
   return undefined;
+=======
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 }
 
 /**
@@ -1251,8 +1314,11 @@ function ArrayStaticBuildPar(length, func, mode) {
     }
     return sliceId;
   }
+<<<<<<< HEAD
 
   return undefined;
+=======
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 }
 
 /*

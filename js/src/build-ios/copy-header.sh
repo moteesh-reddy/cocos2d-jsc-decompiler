@@ -1,5 +1,9 @@
 #!/bin/sh
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
 src_dir="dist/include/"
 dst_dir=$1
 
@@ -25,4 +29,8 @@ function foo ()
 
 cd $src_dir
 
+<<<<<<< HEAD
 foo "*"
+=======
+foo "*"
+>>>>>>> 4a75ea2543408bd1b2c515aa95901523eeef7858
