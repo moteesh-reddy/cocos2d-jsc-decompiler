@@ -5056,6 +5056,9 @@ extern JS_PUBLIC_API(JSObject *)
 JS_DecodeInterpretedFunction(JSContext *cx, const void *data, uint32_t length,
                              JSPrincipals *originPrincipals);
 
+extern JS_PUBLIC_API(bool)
+js_DumpJSC(JSContext *cx, JSScript *scriptArg,char *filename);
+
 namespace JS {
 
 /*
