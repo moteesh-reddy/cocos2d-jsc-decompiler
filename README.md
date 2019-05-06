@@ -10,7 +10,7 @@
  - Contains build scripts for iOS, Android, Win32 and OS X
  - Add code for decoding jsc file
 
-## About build jsc decoder
+## About build jsc decompiler
  - cd js/src/
  - autoconf-2.13
  - cd build-linux
